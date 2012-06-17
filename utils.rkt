@@ -6,23 +6,43 @@
            same-part
            values->list
            rcons
-           match-case)
+           match-case
+           assoc-key
+           assoc-value
+           atom?)
   
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
   
   (begin-encourage-inline
     (define (rcons d a)
-      (cons a d)))
+      (cons a d))
+    (define (assoc-key key alist)
+      (car (assoc key alist)))
+    (define (assoc-value key alist)
+      (cdr (assoc key alist)))
+    (define (atom? thing)
+      (and (not (pair? thing))
+           (not (null? thing)))))
   
-  (define-syntax match-case
-    (syntax-rules ()
-      ((match-case expr ((pat ...) body ...) default)
-       (match expr
-         (pat body ...) ...
-         (_ default)))
-      ((match-case expr ((pat ...) body ...))
-       (match-case expr ((pat ...) body ...) empty))))
+  (define-syntax (match-case stx)
+    (define (split-cases cases-clauses)
+      (apply append
+             (map (lambda (cases-clause)
+                    (let* ((clause-list (syntax->list cases-clause))
+                           (cases-list (syntax->list (car clause-list)))
+                           (clause (cdr clause-list)))
+                      (map (lambda (case)
+                             (cons case clause))
+                           cases-list)))
+                  (syntax->list cases-clauses))))
+    (syntax-case stx (else)
+      ((_ expr (cases cases-body ...) ... (else else-body ...))
+       (with-syntax ((((case case-body ...) ...)
+                      (split-cases #'((cases cases-body ...) ...))))
+         #'(match expr
+             (case case-body ...) ...
+             (_ else-body ...))))))
   
   (define-syntax (collect stx)
     (define (make-default-binds binds)
@@ -41,10 +61,10 @@
     (syntax-case stx (:group :as)
       ((collect (binds ... (:group (fvars ... :as gfvar) ...)) body ...)
        #'(collect (binds ...)
-                  (letrec ((gfvar
-                            (lambda rest-vars
-                              (apply fvars rest-vars) ...)) ...)
-                    body ...)))
+           (letrec ((gfvar
+                     (lambda rest-vars
+                       (apply fvars rest-vars) ...)) ...)
+             body ...)))
       ((collect (binds ...) body ...)
        (with-syntax* 
         ((((fvar init acc) ...) (make-default-binds (syntax->list #'(binds ...))))
@@ -55,8 +75,7 @@
                         (set! var (apply acc var rest-vars))
                         var)) ...)
               body ...
-              (values var ...)))))
-      ))
+              (list (cons 'fvar var) ...)))))))
   
   (define (same-part strs)
     (define (sp s1 s2)
@@ -74,5 +93,4 @@
       (else
        (let ((s1 (car strs))
              (s2 (cadr strs)))
-         (same-part (cons (sp s1 s2) (cddr strs)))))))
-  )
+         (same-part (cons (sp s1 s2) (cddr strs))))))))
