@@ -5,21 +5,31 @@
   (provide collect
            same-part
            values->list
-           rcons)
-
+           rcons
+           match-case)
+  
   (define-syntax-rule (values->list thing)
-      (call-with-values (lambda () thing) list))
+    (call-with-values (lambda () thing) list))
   
   (begin-encourage-inline
     (define (rcons d a)
       (cons a d)))
+  
+  (define-syntax match-case
+    (syntax-rules ()
+      ((match-case expr ((pat ...) body ...) default)
+       (match expr
+         (pat body ...) ...
+         (_ default)))
+      ((match-case expr ((pat ...) body ...))
+       (match-case expr ((pat ...) body ...) empty))))
   
   (define-syntax (collect stx)
     (define (make-default-binds binds)
       (map (lambda (bind)
              (cond ((pair? (syntax-e bind))
                     (let* ((bind (syntax->list bind))
-                          (len (length bind)))
+                           (len (length bind)))
                       (cond ((= 3 len) bind)
                             ((= 2 len) (append bind (list #'rcons)))
                             ((= 1 len) (append bind (list #'null #'rcons)))
@@ -28,7 +38,13 @@
                     (list bind #'null #'rcons))
                    (else (error "Invalid collect binds"))))
            binds))
-    (syntax-case stx ()
+    (syntax-case stx (:group :as)
+      ((collect (binds ... (:group (fvars ... :as gfvar) ...)) body ...)
+       #'(collect (binds ...)
+                  (letrec ((gfvar
+                            (lambda rest-vars
+                              (apply fvars rest-vars) ...)) ...)
+                    body ...)))
       ((collect (binds ...) body ...)
        (with-syntax* 
         ((((fvar init acc) ...) (make-default-binds (syntax->list #'(binds ...))))
@@ -39,18 +55,19 @@
                         (set! var (apply acc var rest-vars))
                         var)) ...)
               body ...
-              (values var ...)))))))
-
+              (values var ...)))))
+      ))
+  
   (define (same-part strs)
     (define (sp s1 s2)
       (let/cc hop
-      (let ((pos 0))
-        (for ((c1 (in-string s1))
-              (c2 (in-string s2)))
-          (unless (eq? c1 c2)
-            (hop (substring s1 0 pos)))
-          (set! pos (+ 1 pos)))
-        (substring s1 0 pos))))
+        (let ((pos 0))
+          (for ((c1 (in-string s1))
+                (c2 (in-string s2)))
+            (unless (eq? c1 c2)
+              (hop (substring s1 0 pos)))
+            (set! pos (+ 1 pos)))
+          (substring s1 0 pos))))
     (cond 
       ((null? strs) "")
       ((null? (cdr strs)) (car strs))
