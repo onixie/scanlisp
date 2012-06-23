@@ -1,8 +1,36 @@
 #lang racket
 
 (require "utils.rkt")
+(require xml)
+(require net/sendurl)
 
 (define (scanlisp (dir #f))
+  (define report
+    (lambda (results (sort? #t))
+      (xexpr->string
+       `(html
+         (body
+          (h1 "ScanLisp Report")
+          (hr)
+          (table
+           ,@(let/cc ret
+               (let loop ((row (car results)) 
+                          (rest (cdr results))
+                               (lines null))
+                 (define (tr-format (type cdr))
+                   `(tr ,@(map (lambda (p)
+                                 `(td ,(format "~a" (type p))))
+                               (if sort?
+                                   (sort row string>? 
+                                         #:key (lambda (item)
+                                             (symbol->string (car item))))
+                                   row))))
+                 (let ((tr (tr-format)))
+                 (when (null? rest)
+                   (ret (cons (tr-format car) (cons tr lines))))
+                   (loop (car rest)
+                         (cdr rest) 
+                         (cons tr lines)))))))))))
   (define current-dialect (make-parameter empty))
   (define (scan-project (dir #f))
     (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
@@ -21,7 +49,7 @@
               (set! result (cons (cons (cons 'path path) 
                                        (scan-file path)) 
                                  result))))))
-      result))
+      (send-url/contents (report result #f))))
   
   (define (scan-file path)
     (collect ((tops 0 add1)
@@ -48,26 +76,27 @@
   (define (scan-toplevel-form form)
     (define (defuns-add1 acc form)
       (match-case form
-        ((`(defun ,name (,args ...) ,body ...)
-          `(defun ,name nil ,body ...))
-         (add1 acc))
+        ((`(defun ,name ,args ,body ...))
+         (if (or (pair? args)
+                 (equal? args 'nil))
+             (add1 acc)
+             acc))
         (else acc)))
     (define (defmacros-add1 acc form)
       (match-case form
-        ((`(defmacro ,name (,args ...) ,body ...)
-          `(defmacro ,name nil ,body ...))
-         (add1 acc))
+        ((`(defmacro ,name ,args ,body ...))
+         (if (pair? args)
+             (add1 acc)
+             acc))
         (else acc)))
     (define (defines-add1 acc form)
       (match-case form
-        ((`(define ,name ,body ...)
-          `(define (,name-and-args ...) ,body ...))
+        ((`(define ,name ,body ...))
          (add1 acc))
         (else acc)))
     (define (lambdas-add1 acc form)
       (match-case form
-        ((`(lambda (,args ...) ,body ...)
-          `(lambda ,args ,body ...))
+        ((`(lambda ,args ,body ...))
          (add1 acc))
         (else acc)))
     (collect ((deeps 0 +)
