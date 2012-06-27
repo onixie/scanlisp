@@ -6,7 +6,9 @@
 (require xml)
 (require net/sendurl)
 
-(define (scanlisp (dir #f))
+(define (scanlisp (dir #f) #:sort-result (sort-result #f) #:raw-result (raw-result #f))
+  (define current-dialect (make-parameter empty))
+  
   (define report
     (lambda (results (sort? #t))
       (xexpr->string
@@ -33,25 +35,32 @@
                    (loop (car rest)
                          (cdr rest) 
                          (cons tr lines)))))))))))
-  (define current-dialect (make-parameter empty))
-  (define (scan-project (dir #f))
+  
+  (define (scan-project (dir #f) #:sort-result (sort-result #f) #:raw-result (raw-result #f))
     (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
     (let ((dir (expand-user-path (or dir (current-directory))))
           (result null))
       (unless (directory-exists? dir)
         (error "Project directory inexists."))
-      (for ((path (in-directory dir)))
-        (when (regexp-match? lisp-regexp path)
-          (let-values (((base file base-p) (split-path path)))
-            (parameterize 
-                ((current-directory base)
-                 (current-dialect (string->symbol 
-                                   (second (regexp-match lisp-regexp 
-                                                         path)))))
-              (set! result (cons (cons (cons 'path path) 
-                                       (scan-file path)) 
-                                 result))))))
-      (send-url/contents (report result #f))))
+      (let ((ths (assoc-value 'th
+                              (collect (th)
+                                (for ((path (in-directory dir)))
+                                  (when (regexp-match? lisp-regexp path)
+                                    (let-values (((base file base-p) (split-path path)))
+                                      (parameterize 
+                                          ((current-directory base)
+                                           (current-dialect (string->symbol 
+                                                             (second (regexp-match lisp-regexp 
+                                                                                   path)))))
+                                        (th (thread (lambda () 
+                                                      (set! result (cons (cons (cons 'path path) 
+                                                                               (scan-file path)) 
+                                                                         result)))))))))))))
+        (for ((th ths))
+          (thread-wait th)))
+      (if raw-result
+          result
+          (send-url/contents (time (report result sort-result))))))
   
   (define (scan-file path)
     (generate-collect counter
@@ -102,4 +111,4 @@
       ((ch in src line col pos)
        (datum->syntax #f (read-unescape-string ch in)))))
   
-  (scan-project dir))
+  (scan-project dir #:sort-result sort-result #:raw-result raw-result))
