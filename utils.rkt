@@ -16,7 +16,7 @@
            atom?
            depth
            thread-wait-all)
-  
+   
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
   
@@ -84,6 +84,22 @@
                    (else (error "Invalid collect binds"))))
            binds))
     (syntax-case stx (:group :as :into-list :into-alist)
+      ((collect (binds ... (:group (fvars ... :as gfvar) ...) (:into-list res ...)) body ...)
+       #'(let ((cols (append-map cdr (collect (binds ... (:group (fvars ... :as gfvar) ...) body ...)))))
+           (set! res cols) ...
+           cols))
+      ((collect (binds ... (:into-list res ...)) body ...)
+       #'(let ((cols (append-map cdr (collect (binds ...) body ...))))
+           (set! res cols) ...
+           cols))
+      ((collect (binds ... (:group (fvars ... :as gfvar) ...) (:into-alist res ...)) body ...)
+       #'(let ((cols (collect (binds ... (:group (fvars ... :as gfvar) ...) body ...))))
+           (set! res cols) ...
+           cols))
+      ((collect (binds ... (:into-alist res ...)) body ...)
+       #'(let ((cols (collect (binds ...) body ...)))
+           (set! res cols) ...
+           cols))
       ((collect (binds ... (:group (fvars ... :as gfvar) ...)) body ...)
        #'(collect (binds ...)
            (letrec ((gfvar
