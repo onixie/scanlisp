@@ -2,7 +2,8 @@
 
 (require "utils.rkt")
 (require "defdefs.rkt")
-(provide (for-syntax counters))
+(provide (for-syntax counters
+                     summary))
 
 (define-counters counters (count-pth count-top count-sub count-err))
 (define-counters summary (sum-prj))
@@ -16,13 +17,13 @@
 (define-counters-adder add-to-prj-summary summary sum-prj)
 
 (define-syntax-rule (add-simple-summary name init op)
-  (add-to-prj-summary name init (lambda (c alist) (op c (assoc-value alist 'name)))))
+  (add-to-prj-summary name init (lambda (c alist) (op c (assoc-value 'name alist)))))
 
 (add-to-pth-counter paths "" (lambda (c path) (path->string path)))
-(add-simple-summary paths "" same-part)
+(add-to-prj-summary total 0 (lambda (c alist) (add1 c)))
 
 (add-to-top-counter tops 0 (lambda (c form) (add1 c)))
-(add-simple-summary tops 0 add)
+(add-simple-summary tops 0 +)
 
 (add-to-top-counter deeps 0 (lambda (c form) (max c (depth form))))
 (add-simple-summary deeps 0 max)
@@ -33,7 +34,7 @@
                                   (cond ((or (pair? args) (equal? args 'nil)) (add1 acc))
                                         (else acc)))
                                  (else acc))))
-(add-simple-summary defuns 0 add)
+(add-simple-summary defuns 0 +)
 
 (add-to-sub-counter defmacros 0 (lambda (acc form)
                                   (match-case form
@@ -41,21 +42,21 @@
                                      (cond ((pair? args) (add1 acc))
                                            (else acc)))
                                     (else acc))))
-(add-simple-summary defmacros 0 add)
+(add-simple-summary defmacros 0 +)
 
 (add-to-sub-counter defines 0 (lambda (acc form)
                                 (match-case form
                                   ((`(define ,name ,body ...))
                                    (add1 acc))
                                   (else acc))))
-(add-simple-summary defines 0 add)
+(add-simple-summary defines 0 +)
 
 (add-to-sub-counter lambdas 0 (lambda (acc form)
                                 (match-case form
                                   ((`(lambda ,args ,body ...))
                                    (add1 acc))
                                   (else acc))))
-(add-simple-summary lambdas 0 add)
+(add-simple-summary lambdas 0 +)
 
 (add-to-err-counter errors)
 (add-simple-summary errors empty append)

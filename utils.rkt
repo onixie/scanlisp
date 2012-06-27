@@ -8,6 +8,7 @@
            add-collect!
            generate-collect
            same-part
+           common-base
            values->list
            rcons
            match-case
@@ -202,4 +203,7 @@
       (else
        (let ((s1 (car strs))
              (s2 (cadr strs)))
-         (same-part (cons (sp s1 s2) (cddr strs))))))))
+         (same-part (cons (sp s1 s2) (cddr strs)))))))
+  
+  (define (common-base str1 str2)
+    (same-part (list str1 str2))))

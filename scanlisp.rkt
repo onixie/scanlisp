@@ -18,12 +18,19 @@
                                    (symbol->string (car cell)))))
          results)))
 
-(define (html-reporter results)
+(define (html-reporter results (summary null) (dir null))
   (send-url/contents
    (xexpr->string
     `(html
       (body
        (h1 "ScanLisp Report")
+       ,@(unless (null? summary)
+           `((hr)
+             ,(unless (null? dir)
+                (format "Project directory: ~a" dir))
+             (table
+              (tr ,@(map (lambda (p) `(td ,(format "~a" (car p)))) summary))
+              (tr ,@(map (lambda (p) `(td ,(format "~a" (cdr p)))) summary)))))
        (hr)
        (table
         ,@(let/cc ret
@@ -54,20 +61,27 @@
     (let ((dir (expand-user-path (or dir (current-directory)))))
       (unless (directory-exists? dir)
         (error "Project directory inexists."))
-      (let ((results null)
-            (summary null)
-            (ths null))
-        (collect (ths (:into-list ths))
-          (for ((path (in-directory dir)))
-            (when (regexp-match? lisp-regexp path)
-              (let-values (((base file base-p) (split-path path)))
-                (parameterize ((current-directory base)
-                               (current-dialect (dialect-type path)))
-                  (ths (thread (lambda () 
-                                 (set! results
-                                       (cons (scan-file path) results))))))))))
-        (thread-wait-all ths)
-        (report (row-sort (column-sort results))))))
+      (let* ((results null)
+             (ths null)
+             (summary
+              (generate-collect summary
+                (collect (results (:into-list results))
+                  (collect (ths (:into-list ths))
+                    (for ((path (in-directory dir)))
+                      (when (regexp-match? lisp-regexp path)
+                        (let-values (((base file base-p) (split-path path)))
+                          (parameterize ((current-directory base)
+                                         (current-dialect (dialect-type path)))
+                            (ths (thread (lambda ()
+                                           (let ((r (scan-file path)))
+                                             (sum-prj r)
+                                             (results r))))))))))
+                  (thread-wait-all ths)))))      
+        (apply report 
+               (row-sort (column-sort results)) 
+               (if summary? 
+                   (list summary dir)
+                   '())))))
   
   (define (scan-file path)
     (generate-collect counters
