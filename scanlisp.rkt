@@ -24,13 +24,15 @@
     `(html
       (body
        (h1 "ScanLisp Report")
-       ,@(unless (null? summary)
-           `((hr)
-             ,(unless (null? dir)
-                (format "Project directory: ~a" dir))
-             (table
-              (tr ,@(map (lambda (p) `(td ,(format "~a" (car p)))) summary))
-              (tr ,@(map (lambda (p) `(td ,(format "~a" (cdr p)))) summary)))))
+       ,@(if (pair? summary)
+             `((hr)
+               ,(if (null? dir)
+                    ""
+                    (format "Project directory: ~a" dir))
+               (table
+                (tr ,@(map (lambda (p) `(td ,(format "~a" (car p)))) summary))
+                (tr ,@(map (lambda (p) `(td ,(format "~a" (cdr p)))) summary))))
+             '(""))
        (hr)
        (table
         ,@(let/cc ret
