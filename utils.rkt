@@ -14,7 +14,8 @@
            assoc-key
            assoc-value
            atom?
-           depth)
+           depth
+           thread-wait-all)
   
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
@@ -31,6 +32,10 @@
     (define (atom? thing)
       (and (not (pair? thing))
            (not (null? thing)))))
+  
+  (define-syntax-rule (thread-wait-all ths)
+    (for ((th ths))
+      (thread-wait th)))
   
   (begin-for-syntax
     (define (merge-assoc left right)

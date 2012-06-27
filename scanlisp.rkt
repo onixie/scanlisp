@@ -6,44 +6,51 @@
 (require xml)
 (require net/sendurl)
 
-(define (scanlisp (dir #f) #:sort-result (sort-result #f) #:raw-result (raw-result #f))
+(define (column-sorter column (op >))
+  (lambda (results)
+    (sort results op #:key (lambda (row)
+                             (assoc-value column row)))))
+
+(define (row-sorter (op string>?))
+  (lambda (row)
+    (sort row op #:key (lambda (cell)
+                         (symbol->string (car cell))))))
+
+(define (scanlisp (dir #f) #:row-sort (row-sort #f) #:column-sort (column-sort #f) #:raw-result (raw-result #f))
   (define current-dialect (make-parameter empty))
   
-  (define report
-    (lambda (results (sort? #t))
-      (xexpr->string
-       `(html
-         (body
-          (h1 "ScanLisp Report")
-          (hr)
-          (table
-           ,@(let/cc ret
-               (let loop ((row (car results))
-                          (rest (cdr results))
-                          (lines null))
-                 (define (tr-format (type cdr))
-                   `(tr ,@(map (lambda (p)
-                                 `(td ,(format "~a" (type p))))
-                               (if sort?
-                                   (sort row string>?
-                                         #:key (lambda (item)
-                                                 (symbol->string (car item))))
-                                   row))))
-                 (let ((tr (tr-format)))
-                   (when (null? rest)
-                     (ret (cons (tr-format car) (cons tr lines))))
-                   (loop (car rest)
-                         (cdr rest) 
-                         (cons tr lines)))))))))))
+  (define (report results)
+    (xexpr->string
+     `(html
+       (body
+        (h1 "ScanLisp Report")
+        (hr)
+        (table
+         ,@(let/cc ret
+             (let loop ((row (car results))
+                        (rest (cdr results))
+                        (lines null))
+               (define (tr-format (type cdr))
+                 `(tr ,@(map (lambda (p)
+                               `(td ,(format "~a" (type p))))
+                             (if row-sort
+                                 (row-sort row)
+                                 row))))
+               (let ((tr (tr-format)))
+                 (when (null? rest)
+                   (ret (cons (tr-format car) (cons tr lines))))
+                 (loop (car rest)
+                       (cdr rest) 
+                       (cons tr lines))))))))))
   
-  (define (scan-project (dir #f) #:sort-result (sort-result #f) #:raw-result (raw-result #f))
+  (define (scan-project (dir #f))
     (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
     (let ((dir (expand-user-path (or dir (current-directory))))
           (result null))
       (unless (directory-exists? dir)
         (error "Project directory inexists."))
-      (let ((ths (assoc-value 'th
-                              (collect (th)
+      (let ((ths (assoc-value 'ths
+                              (collect (ths)
                                 (for ((path (in-directory dir)))
                                   (when (regexp-match? lisp-regexp path)
                                     (let-values (((base file base-p) (split-path path)))
@@ -52,15 +59,18 @@
                                            (current-dialect (string->symbol 
                                                              (second (regexp-match lisp-regexp 
                                                                                    path)))))
-                                        (th (thread (lambda () 
-                                                      (set! result (cons (cons (cons 'path path) 
-                                                                               (scan-file path)) 
-                                                                         result)))))))))))))
-        (for ((th ths))
-          (thread-wait th)))
+                                        (ths (thread (lambda () 
+                                                       (set! result (cons (cons (cons 'path path) 
+                                                                                (scan-file path)) 
+                                                                          result)))))))))))))
+        (thread-wait-all ths))
       (if raw-result
           result
-          (send-url/contents (time (report result sort-result))))))
+          (send-url/contents 
+           (report 
+            (if column-sort
+                (column-sort result)
+                result))))))
   
   (define (scan-file path)
     (generate-collect counter
@@ -111,4 +121,4 @@
       ((ch in src line col pos)
        (datum->syntax #f (read-unescape-string ch in)))))
   
-  (scan-project dir #:sort-result sort-result #:raw-result raw-result))
+  (scan-project dir))
