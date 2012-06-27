@@ -16,7 +16,7 @@
     (sort row op #:key (lambda (cell)
                          (symbol->string (car cell))))))
 
-(define (scanlisp (dir #f) #:row-sort (row-sort #f) #:column-sort (column-sort #f) #:raw-result (raw-result #f))
+(define (scanlisp (dir #f) #:row-sort (row-sort #f) #:column-sort (column-sort #f) #:summary? (summary? #f) #:raw? (raw? #f))
   (define current-dialect (make-parameter empty))
   
   (define (report results)
@@ -46,7 +46,8 @@
   (define (scan-project (dir #f))
     (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
     (let ((dir (expand-user-path (or dir (current-directory))))
-          (result null))
+          (result null)
+          (summary null))
       (unless (directory-exists? dir)
         (error "Project directory inexists."))
       (let ((ths (assoc-value 'ths
@@ -56,41 +57,41 @@
                                     (let-values (((base file base-p) (split-path path)))
                                       (parameterize 
                                           ((current-directory base)
-                                           (current-dialect (string->symbol 
+                                           (current-dialect (string->symbol
                                                              (second (regexp-match lisp-regexp 
                                                                                    path)))))
                                         (ths (thread (lambda () 
-                                                       (set! result (cons (cons (cons 'path path) 
-                                                                                (scan-file path)) 
+                                                       (set! result (cons (scan-file path) 
                                                                           result)))))))))))))
         (thread-wait-all ths))
-      (if raw-result
+      (if raw?
           result
           (send-url/contents 
-           (report 
+           (report
             (if column-sort
                 (column-sort result)
                 result))))))
   
   (define (scan-file path)
-    (generate-collect counter
-      (define (scan-form form)
-        (cond ((not (pair? form)) form)
-              ((pair? (car form))
-               (sub-count (car form))
-               (scan-form (car form))
-               (scan-form (cdr form)))
-              (else
-               (scan-form (cdr form)))))
-      (call-with-input-file path
-        (lambda (in)
-          (with-handlers ((exn:fail? (lambda (exn) (error-count exn))))
-            (do ((form (read-toplevel-form in path)
-                       (read-toplevel-form in path)))
-              ((eof-object? form))
-              (top-count form)
-              (sub-count form)
-              (scan-form form)))))))
+    (generate-collect counters
+      (letrec ((scan-form (lambda (form)
+                            (cond ((not (pair? form)) form)
+                                  ((pair? (car form))
+                                   (count-sub (car form))
+                                   (scan-form (car form))
+                                   (scan-form (cdr form)))
+                                  (else
+                                   (scan-form (cdr form)))))))
+        (count-pth path)
+        (call-with-input-file path
+          (lambda (in)
+            (with-handlers ((exn:fail? (lambda (exn) (count-err exn))))
+              (do ((form (read-toplevel-form in path)
+                         (read-toplevel-form in path)))
+                ((eof-object? form))
+                (count-top form)
+                (count-sub form)
+                (scan-form form))))))))
   
   (define (read-toplevel-form in dialect)
     (case (current-dialect)

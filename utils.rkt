@@ -49,7 +49,7 @@
                                                   (remove-duplicates (append (cadr li) (cadr ri))))
                                             (remove ri right)))
                                   (else (cons li right)))))))))
-    
+  
   (define-syntax (match-case stx)
     (define (split-cases cases-clauses)
       (apply append
@@ -69,7 +69,6 @@
              (case case-body ...) ...
              (_ else-body ...))))))
   
-  
   (define-syntax (collect stx)
     (define (make-default-binds binds)
       (map (lambda (bind)
@@ -84,7 +83,7 @@
                     (list bind #'null #'rcons))
                    (else (error "Invalid collect binds"))))
            binds))
-    (syntax-case stx (:group :as)
+    (syntax-case stx (:group :as :into-list :into-alist)
       ((collect (binds ... (:group (fvars ... :as gfvar) ...)) body ...)
        #'(collect (binds ...)
            (letrec ((gfvar
@@ -128,35 +127,35 @@
   
   (define-syntax (generate-collect stx)
     (syntax-case stx ()
-    ((_ what body ...)
-     (with-syntax ((((clauses ...) groups ...)
-                    (let ((collect (eval-syntax #'what)))
-                      ;(display collect)
-                      (cons
-                       (let/cc return
-                         (let loop-unhygiene ((hys (car collect)) (unhys null))
-                           (cond ((null? hys) (return unhys))
-                                 (else
-                                  (let* ((hy (car hys))
-                                         (unhy (cond ((pair? hy) 
-                                                      (cons
-                                                       (format-id #'what "~a" (car hy))
-                                                       (cdr hy)))
-                                                     (else (format-id #'what "~a" hy)))))
-                                    (loop-unhygiene (cdr hys) (cons unhy unhys)))))))
-                       (let/cc return
-                         (let loop-group ((raws (cadr collect)) (grps null))
-                           (cond ((null? raws) (return grps))
-                                 (else
-                                  (let* ((grp (car raws))
-                                         (gname (format-id #'what "~a" (car grp)))
-                                         (names (map (lambda (name)
-                                                       (format-id #'what "~a" name))
-                                                     (cadr grp)))
-                                         (grp `(:group (,@names :as ,gname))))
-                                    (loop-group (cdr raws) (cons grp grps)))))))))))
-       #'(collect (clauses ... groups ...)
-           body ...)))))
+      ((_ what body ...)
+       (with-syntax ((((clauses ...) groups ...)
+                      (let ((collect (eval-syntax #'what)))
+                        ;(display collect)
+                        (cons
+                         (let/cc return
+                           (let loop-unhygiene ((hys (car collect)) (unhys null))
+                             (cond ((null? hys) (return unhys))
+                                   (else
+                                    (let* ((hy (car hys))
+                                           (unhy (cond ((pair? hy) 
+                                                        (cons
+                                                         (format-id #'what "~a" (car hy))
+                                                         (cdr hy)))
+                                                       (else (format-id #'what "~a" hy)))))
+                                      (loop-unhygiene (cdr hys) (cons unhy unhys)))))))
+                         (let/cc return
+                           (let loop-group ((raws (cadr collect)) (grps null))
+                             (cond ((null? raws) (return grps))
+                                   (else
+                                    (let* ((grp (car raws))
+                                           (gname (format-id #'what "~a" (car grp)))
+                                           (names (map (lambda (name)
+                                                         (format-id #'what "~a" name))
+                                                       (cadr grp)))
+                                           (grp `(:group (,@names :as ,gname))))
+                                      (loop-group (cdr raws) (cons grp grps)))))))))))
+         #'(collect (clauses ... groups ...)
+             body ...)))))
   
   
   (define (depth l)

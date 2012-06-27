@@ -1,48 +1,61 @@
 #lang racket
 
 (require "utils.rkt")
-(provide (for-syntax counter))
+(require "defdefs.rkt")
+(provide (for-syntax counters))
 
-(define-collect counter
-  ()
-  (:group (:as top-count)
-          (:as sub-count)
-          (:as error-count)))
+(define-counters counters (count-pth count-top count-sub count-err))
+(define-counters summary (sum-prj))
 
-(add-collect! counter
-  ((tops 0 (lambda (acc form)
-             (add1 acc)))
-   (deeps 0 (lambda (acc form)
-              (max acc (depth form)))))
-  (:group (tops deeps :into top-count)))
+(define-counters-adder add-to-counter counters)
+(define-counters-adder add-to-summary summary)
+(define-counters-adder add-to-pth-counter counters count-pth)
+(define-counters-adder add-to-top-counter counters count-top)
+(define-counters-adder add-to-sub-counter counters count-sub)
+(define-counters-adder add-to-err-counter counters count-err)
+(define-counters-adder add-to-prj-summary summary sum-prj)
 
-(add-collect! counter
-  ((defuns 0 (lambda (acc form)
-               (match-case form
-                 ((`(defun ,name ,args ,body ...))
-                  (if (or (pair? args) (equal? args 'nil))
-                      (add1 acc)
-                      acc))
-                 (else acc))))
-   (defmacros 0 (lambda (acc form)
-                  (match-case form
-                    ((`(defmacro ,name ,args ,body ...))
-                     (if (pair? args)
-                         (add1 acc)
-                         acc))
-                    (else acc))))
-   (defines 0 (lambda (acc form)
-                (match-case form
-                  ((`(define ,name ,body ...))
-                   (add1 acc))
-                  (else acc))))
-   (lambdas 0 (lambda (acc form)
-               (match-case form
-                 ((`(lambda ,args ,body ...))
-                  (add1 acc))
-                 (else acc)))))
-  (:group (defuns defmacros defines lambdas :into sub-count)))
+(define-syntax-rule (add-simple-summary name init op)
+  (add-to-prj-summary name init (lambda (c alist) (op c (assoc-value alist 'name)))))
 
-(add-collect! counter
-  (errors)
-  (:group (errors :into error-count)))
+(add-to-pth-counter paths "" (lambda (c path) (path->string path)))
+(add-simple-summary paths "" same-part)
+
+(add-to-top-counter tops 0 (lambda (c form) (add1 c)))
+(add-simple-summary tops 0 add)
+
+(add-to-top-counter deeps 0 (lambda (c form) (max c (depth form))))
+(add-simple-summary deeps 0 max)
+
+(add-to-sub-counter defuns 0 (lambda (acc form)
+                               (match-case form
+                                 ((`(defun ,name ,args ,body ...))
+                                  (cond ((or (pair? args) (equal? args 'nil)) (add1 acc))
+                                        (else acc)))
+                                 (else acc))))
+(add-simple-summary defuns 0 add)
+
+(add-to-sub-counter defmacros 0 (lambda (acc form)
+                                  (match-case form
+                                    ((`(defmacro ,name ,args ,body ...))
+                                     (cond ((pair? args) (add1 acc))
+                                           (else acc)))
+                                    (else acc))))
+(add-simple-summary defmacros 0 add)
+
+(add-to-sub-counter defines 0 (lambda (acc form)
+                                (match-case form
+                                  ((`(define ,name ,body ...))
+                                   (add1 acc))
+                                  (else acc))))
+(add-simple-summary defines 0 add)
+
+(add-to-sub-counter lambdas 0 (lambda (acc form)
+                                (match-case form
+                                  ((`(lambda ,args ,body ...))
+                                   (add1 acc))
+                                  (else acc))))
+(add-simple-summary lambdas 0 add)
+
+(add-to-err-counter errors)
+(add-simple-summary errors empty append)
