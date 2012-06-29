@@ -2,56 +2,9 @@
 
 (require "utils.rkt")
 (require "defs.rkt")
+(require "report.rkt")
 
-(require xml)
-(require net/sendurl)
-
-(define (row-sorter column (op >))
-  (lambda (results)
-    (sort results op #:key (lambda (row)
-                             (assoc-value column row)))))
-
-(define (column-sorter (op string>?))
-  (lambda (results)
-    (map (lambda (result)
-           (sort result op #:key (lambda (cell)
-                                   (symbol->string (car cell)))))
-         results)))
-
-(define (html-reporter results (summary null) (dir null))
-  (send-url/contents
-   (xexpr->string
-    `(html
-      (body
-       (h1 "ScanLisp Report")
-       ,@(if (pair? summary)
-             `((hr)
-               ,(if (null? dir)
-                    ""
-                    (format "Project directory: ~a" dir))
-               (table
-                (tr ,@(map (lambda (p) `(td ,(format "~a" (car p)))) summary))
-                (tr ,@(map (lambda (p) `(td ,(format "~a" (cdr p)))) summary))))
-             '(""))
-       (hr)
-       (table
-        ,@(let/cc ret
-            (let loop ((row (car results))
-                       (rest (cdr results))
-                       (lines null))
-              (define (tr-format (type cdr))
-                `(tr ,@(map (lambda (p)
-                              `(td ,(format "~a" (type p))))
-                            row)))
-              (let ((tr (tr-format)))
-                (when (null? rest)
-                  (ret (cons (tr-format car) (cons tr lines))))
-                (loop (car rest)
-                      (cdr rest) 
-                      (cons tr lines)))))))))))
-
-(define (scanlisp (dir #f) #:report (report identity) #:row-sort (row-sort identity) #:column-sort (column-sort identity) #:summary? (summary? #f))
-  
+(define (scanlisp (dir #f) #:report (report identity) #:summary? (summary? #f) #:row-sort (row-sort identity) #:column-sort (column-sort identity))
   (define current-dialect (make-parameter empty))
   (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
   (define (dialect-type path)
@@ -63,11 +16,11 @@
     (let ((dir (expand-user-path (or dir (current-directory)))))
       (unless (directory-exists? dir)
         (error "Project directory inexists."))
-      (let* ((results null)
+      (let* ((details null)
              (ths null)
              (summary
               (generate-collect summary
-                (collect (results (:into-list results))
+                (collect (details (:into-list details))
                   (collect (ths (:into-list ths))
                     (for ((path (in-directory dir)))
                       (when (regexp-match? lisp-regexp path)
@@ -77,13 +30,11 @@
                             (ths (thread (lambda ()
                                            (let ((r (scan-file path)))
                                              (sum-prj r)
-                                             (results r))))))))))
-                  (thread-wait-all ths)))))      
-        (apply report 
-               (row-sort (column-sort results)) 
-               (if summary? 
-                   (list summary dir)
-                   '())))))
+                                             (details r))))))))))
+                  (thread-wait-all ths)))))
+        (report (list (row-sort (column-sort details))
+                      (and summary? summary)
+                      (and summary? dir))))))
   
   (define (scan-file path)
     (generate-collect counters
@@ -102,21 +53,21 @@
               (do ((form (read-toplevel-form in path)
                          (read-toplevel-form in path)))
                 ((eof-object? form))
-                (count-top form)
-                (count-sub form)
-                (scan-form form))))))))
+                (when (pair? form)
+                  (count-top form)
+                  (count-sub form)
+                  (scan-form form)))))))))
   
   (define (read-toplevel-form in dialect)
     (case (current-dialect)
       ((lisp lisp-expr asd)
-       (parameterize ((current-readtable 
-                       (make-readtable #f 
-                                       #\# #\ #f
-                                       #\. #\ #f
-                                       #\' #\ #f
-                                       #\` #\ #f
-                                       #\, #\ #f
-                                       #\" 'terminating-macro read-unescape-string)))
+       (parameterize ((current-readtable (make-readtable #f 
+                                                         #\# #\ #f
+                                                         #\. #\ #f
+                                                         #\' #\ #f
+                                                         #\` #\ #f
+                                                         #\, #\ #f
+                                                         #\" 'terminating-macro read-unescape-string)))
          (read in)))
       ((rkt scm ss)
        (parameterize ((read-accept-lang #t)
@@ -136,3 +87,6 @@
        (datum->syntax #f (read-unescape-string ch in)))))
   
   (scan-project dir))
+
+(define (scanlisp.html (dir #f) #:row-sort (row-sort identity) #:column-sort (column-sort identity))
+  (scanlisp dir #:report html-reporter #:summary? #t #:row-sort row-sort #:column-sort column-sort))

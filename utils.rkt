@@ -177,15 +177,15 @@
   
   (define (depth l)
     (letrec ((d (lambda (l)
-                  (cond ((null? l) 1)
+                  (cond ((atom? l) 0)
+                        ((null? l) 1)
                         ((atom? (car l)) (d (cdr l)))
                         (else
                          (let ((cad (+ 1 (d (car l))))
                                (cdd (d (cdr l))))
                            (cond ((> cdd cad) cdd)
                                  (else cad))))))))
-      (cond ((atom? l) 0)
-            (else (d l)))))
+      (d l)))
   
   (define (same-part strs)
     (define (sp s1 s2)

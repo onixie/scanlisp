@@ -22,6 +22,10 @@
 (add-to-pth-counter paths "" (lambda (c path) (path->string path)))
 (add-to-prj-summary total 0 (lambda (c alist) (add1 c)))
 
+(add-to-prj-summary fail 0 (lambda (c alist) 
+                             (+ c (if (zero? (string-length (assoc-value 'errors alist)))
+                                      0 1))))
+
 (add-to-top-counter tops 0 (lambda (c form) (add1 c)))
 (add-simple-summary tops 0 +)
 
@@ -58,5 +62,4 @@
                                   (else acc))))
 (add-simple-summary lambdas 0 +)
 
-(add-to-err-counter errors)
-(add-simple-summary errors empty append)
+(add-to-err-counter errors "" (lambda (acc exn) (format "~a" (exn-message exn))))
