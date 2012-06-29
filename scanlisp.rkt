@@ -9,7 +9,7 @@
   (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
   (define (dialect-type path)
     (string->symbol
-     (second (regexp-match lisp-regexp 
+     (second (regexp-match lisp-regexp
                            path))))
   
   (define (scan-project (dir #f))

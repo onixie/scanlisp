@@ -62,4 +62,22 @@
                                   (else acc))))
 (add-simple-summary lambdas 0 +)
 
+(add-to-sub-counter lets 0 (lambda (acc form)
+                             (match form
+                               (`(let ,bindings ,body ...) (if (pair? bindings)
+                                                               (add1 acc)
+                                                               acc))
+                               (else (match form
+                                       (`(let ,name ,bindings ,body ...) (if (and (atom? name) (pair? bindings))
+                                                                             (add1 acc)
+                                                                             acc))
+                                       (else acc))))))
+(add-simple-summary lets 0 +)
+
+(add-to-sub-counter valuesmax 0 (lambda (acc form)
+                                  (match form
+                                    (`(values ,value ...) (max (length value) acc))
+                                    (else acc))))
+(add-simple-summary valuesmax 0 max)
+
 (add-to-err-counter errors "" (lambda (acc exn) (format "~a" (exn-message exn))))
