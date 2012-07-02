@@ -18,7 +18,6 @@
            depth
            thread-wait-all)
   
-  
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
   
@@ -124,22 +123,22 @@
     (syntax-case stx (:group :as)
       ((_ what (clauses ...))
        #'(begin-for-syntax
-           (define what '((clauses ...) ()))))
+           (define what (list (list #'clauses ...) '()))))
       ((_ what (clauses ...) (:group (names ... :as gnames) ...))
        #'(begin-for-syntax
-           (define what '((clauses ...)
-                          ((gnames (names ...)) ...)))))))
+           (define what (list (list #'clauses ...)
+                              '((gnames (names ...)) ...)))))))
   
   (define-syntax (add-collect! stx)
     (syntax-case stx (:group :into)
       ((_ what (clauses ...))
        #'(begin-for-syntax
-           (set! what (list (list* 'clauses ... (car what))
+           (set! what (list (list* #'clauses ... (car what))
                             (cadr what)))))
       ((_ what (clauses ...) (:group (names ... :into gnames) ...))
        (with-syntax ((grps #''((gnames (names ...)) ...)))
          #'(begin-for-syntax
-             (set! what (list (list* 'clauses ... (car what))
+             (set! what (list (list* #'clauses ... (car what))
                               (merge-assoc grps (cadr what)))))))))
   
   (define-syntax (generate-collect stx)
@@ -147,18 +146,19 @@
       ((_ what (into-clause ...) body ...)
        (with-syntax ((((clauses ...) groups ...)
                       (let ((collect (eval-syntax #'what)))
-                        ;(display collect)
+                        (display collect)
                         (cons
                          (let/cc return
                            (let loop-unhygiene ((hys (car collect)) (unhys null))
                              (cond ((null? hys) (return unhys))
                                    (else
                                     (let* ((hy (car hys))
-                                           (unhy (cond ((pair? hy) 
+                                           (hy-e (syntax-e hy))
+                                           (unhy (cond ((pair? hy-e)
                                                         (cons
-                                                         (format-id #'what "~a" (car hy))
-                                                         (cdr hy)))
-                                                       (else (format-id #'what "~a" hy)))))
+                                                         (format-id #'what "~a" (car hy-e))
+                                                         (cdr hy-e)))
+                                                       (else (format-id #'what "~a" (syntax->datum hy-e))))))
                                       (loop-unhygiene (cdr hys) (cons unhy unhys)))))))
                          (let/cc return
                            (let loop-group ((raws (cadr collect)) (grps null))
