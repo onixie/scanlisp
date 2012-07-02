@@ -146,7 +146,6 @@
       ((_ what (into-clause ...) body ...)
        (with-syntax ((((clauses ...) groups ...)
                       (let ((collect (eval-syntax #'what)))
-                        (display collect)
                         (cons
                          (let/cc return
                            (let loop-unhygiene ((hys (car collect)) (unhys null))

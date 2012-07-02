@@ -47,7 +47,7 @@
 (define-subform-counter defuns 
   (0 (lambda (acc form)
        (match-case form
-         ((`(defun ,name ,args ,body ...))
+         ((`(defun ,name ,args ,body (... ...)))
           (cond ((or (pair? args) (equal? args 'nil)) (add1 acc))
                 (else acc)))
          (else acc)))))
@@ -58,7 +58,7 @@
 (define-subform-counter defmacros 
   (0 (lambda (acc form)
        (match-case form
-         ((`(defmacro ,name ,args ,body ...))
+         ((`(defmacro ,name ,args ,body (... ...)))
           (cond ((pair? args) (add1 acc))
                 (else acc)))
          (else acc)))))
@@ -69,7 +69,7 @@
 (define-subform-counter defines 
   (0 (lambda (acc form)
        (match-case form
-         ((`(define ,name ,body ...))
+         ((`(define ,name ,body (... ...)))
           (add1 acc))
          (else acc)))))
 (define-simple-summary-counter defines 
@@ -78,7 +78,7 @@
 (define-subform-counter lambdas
   (0 (lambda (acc form)
        (match-case form
-         ((`(lambda ,args ,body ...))
+         ((`(lambda ,args ,body (... ...)))
           (add1 acc))
          (else acc)))))
 
@@ -88,11 +88,11 @@
 (define-subform-counter lets
   (0 (lambda (acc form)
        (match form
-         (`(let ,bindings ,body ...) (if (pair? bindings)
+         (`(let ,bindings ,body (... ...)) (if (pair? bindings)
                                          (add1 acc)
                                          acc))
          (else (match form
-                 (`(let ,name ,bindings ,body ...) (if (and (atom? name) (pair? bindings))
+                 (`(let ,name ,bindings ,body (... ...)) (if (and (atom? name) (pair? bindings))
                                                        (add1 acc)
                                                        acc))
                  (else acc)))))))
@@ -103,7 +103,7 @@
 (define-subform-counter valuesmax 
   (0 (lambda (acc form)
        (match form
-         (`(values ,value ...) (max (length value) acc))
+         (`(values ,value (... ...)) (max (length value) acc))
          (else acc)))))
 
 (define-simple-summary-counter valuesmax 
