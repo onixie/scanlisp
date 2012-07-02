@@ -17,7 +17,8 @@
            atom?
            depth
            thread-wait-all)
-   
+  
+  
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
   
@@ -32,13 +33,15 @@
         (and thing (cdr thing))))
     (define (atom? thing)
       (and (not (pair? thing))
-           (not (null? thing)))))
+           (not (null? thing))))
+    (define list->values
+      (compose vector->values list->vector)))
   
   (define-syntax-rule (thread-wait-all ths)
     (for ((th ths))
       (thread-wait th)))
   
-  (begin-for-syntax
+  (begin-for-syntax 
     (define (merge-assoc left right)
       (cond ((null? left) right)
             (else 
@@ -84,25 +87,22 @@
                     (list bind #'null #'rcons))
                    (else (error "Invalid collect binds"))))
            binds))
-    (syntax-case stx (:group :as :into-list :into-alist)
-      ((collect (binds ... (:group (fvars ... :as gfvar) ...) (:into-list res ...)) body ...)
-       #'(let ((cols (append-map cdr (collect (binds ... (:group (fvars ... :as gfvar) ...) body ...)))))
+    (syntax-case stx (:group :as :into-values :into-list :into-alist)
+      ((collect (args ... (:into-values res ...)) body ...)
+       #'(let* ((cols (map cdr (collect (args ...) body ...))))
+           (unless (zero? (length (list res ...)))
+             (set!-values (res ...) (list->values cols)))
+           (list->values cols)))
+      ((collect (args ... (:into-list res ...)) body ...)
+       #'(let ((cols (map cdr (collect (args ...) body ...))))
            (set! res cols) ...
            cols))
-      ((collect (binds ... (:into-list res ...)) body ...)
-       #'(let ((cols (append-map cdr (collect (binds ...) body ...))))
+      ((collect (args ... (:into-alist res ...)) body ...)
+       #'(let ((cols (collect (args ...) body ...)))
            (set! res cols) ...
            cols))
-      ((collect (binds ... (:group (fvars ... :as gfvar) ...) (:into-alist res ...)) body ...)
-       #'(let ((cols (collect (binds ... (:group (fvars ... :as gfvar) ...) body ...))))
-           (set! res cols) ...
-           cols))
-      ((collect (binds ... (:into-alist res ...)) body ...)
-       #'(let ((cols (collect (binds ...) body ...)))
-           (set! res cols) ...
-           cols))
-      ((collect (binds ... (:group (fvars ... :as gfvar) ...)) body ...)
-       #'(collect (binds ...)
+      ((collect (args ... (:group (fvars ... :as gfvar) ...)) body ...)
+       #'(collect (args ...)
            (letrec ((gfvar
                      (lambda rest-vars
                        (apply fvars rest-vars) ...
@@ -144,7 +144,7 @@
   
   (define-syntax (generate-collect stx)
     (syntax-case stx ()
-      ((_ what body ...)
+      ((_ what (into-clause ...) body ...)
        (with-syntax ((((clauses ...) groups ...)
                       (let ((collect (eval-syntax #'what)))
                         ;(display collect)
@@ -171,9 +171,11 @@
                                                        (cadr grp)))
                                            (grp `(:group (,@names :as ,gname))))
                                       (loop-group (cdr raws) (cons grp grps)))))))))))
-         #'(collect (clauses ... groups ...)
-             body ...)))))
-  
+         (if (zero? (length (syntax->list #'(into-clause ...))))
+             #'(collect (clauses ... groups ...)
+                 body ...)
+             #'(collect (clauses ... groups ... (into-clause ...))
+                 body ...))))))
   
   (define (depth l)
     (letrec ((d (lambda (l)
