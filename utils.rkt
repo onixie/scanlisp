@@ -16,12 +16,14 @@
            assoc-value
            atom?
            depth
-           thread-wait-all)
+           thread-wait-all
+           (for-syntax unhygienize))
   
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
   
   (begin-encourage-inline
+    
     (define (rcons d a)
       (cons a d))
     (define (assoc-key key alist)
@@ -41,6 +43,8 @@
       (thread-wait th)))
   
   (begin-for-syntax 
+    (define (unhygienize id (lctx #'_))
+      (format-id lctx "~a" id))
     (define (merge-assoc left right)
       (cond ((null? left) right)
             (else 
