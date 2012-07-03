@@ -1,7 +1,7 @@
 #lang racket
 
 (require "utils.rkt")
-(require "defs.rkt")
+(require "defdefs.rkt")
 (require xml)
 (require net/sendurl)
 
@@ -12,7 +12,7 @@
 (define (row-sorter column (op >))
   (lambda (results)
     (sort results op #:key (lambda (row)
-                             (assoc-value column row)))))
+                             (get-value column row)))))
 
 (define (column-sorter (op string>?))
   (lambda (results)
@@ -25,7 +25,8 @@
   (let ((dir (third results))
         (summary (second results))
         (detail (first results))
-        (page-name "ScanLisp Report"))
+        (page-name "ScanLisp Report")
+        (css-file "scanlisp.css"))
     (send-url/contents
      (format "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">~a"
              (xexpr->string
@@ -33,7 +34,7 @@
                 (head 
                  (title ,page-name)
                  (link ((rel "stylesheet")
-                        (href ,(format "~ascanlisp.css" (current-directory))))))
+                        (href ,(format "~a~a" (current-directory) css-file)))))
                 (body
                  (div ((class "Banner"))
                       (h1 ,page-name))
@@ -44,12 +45,17 @@
                                          ,(format "Project directory: ~a" dir))
                                    "")
                               (table ((class "SumTab"))
-                                     (tr ,@(map (lambda (p) `(td ((class "SumHead")
-                                                                  (id ,(format "Sum~a" (car p))))
-                                                                 ,(string-titlecase (format "~a" (car p))))) summary))
-                                     (tr ,@(map (lambda (p) `(td ((class "SumContent")
-                                                                  (id ,(format "Sum~a" (car p))))
-                                                                 ,(format "~a" (cdr p)))) summary)))))
+                                     (tr ,@(map (lambda (p) 
+                                                  (print-value (cdr p))
+                                                  `(td ((class "SumHead")
+                                                        (id ,(format "Sum~a" (car p))))
+                                                       ,(format "~a" (print-description (cdr p)))))
+                                                summary))
+                                     (tr ,@(map (lambda (p)
+                                                  `(td ((class "SumContent")
+                                                        (id ,(format "Sum~a" (car p))))
+                                                       ,(format "~a" (print-value (cdr p)))))
+                                                summary)))))
                        '(""))
                  
                  (div ((class "Detail"))
@@ -59,15 +65,15 @@
                                             (rest (cdr detail))
                                             (lines null)
                                             (ind 1))
-                                   (define (tr-format (type cdr) (title identity))
+                                   (define (gen-tr (op print-value) (head #f))
                                      `(tr ,@(map (lambda (p)
-                                                   `(td ((class ,@(type `(("DetHead") ,(if (even? ind) "DetEven" "DetOdd"))))
+                                                   `(td ((class ,(if head "DetHead" (if (even? ind) "DetEven" "DetOdd")))
                                                          (id ,(format "Det~a" (car p))))
-                                                        ,(title (format "~a" (type p)))))
+                                                        ,(format "~a" (op (cdr p)))))
                                                  row)))
-                                   (let ((tr (tr-format)))
+                                   (let ((tr (gen-tr)))
                                      (when (null? rest)
-                                       (ret (cons (tr-format car string-titlecase) (cons tr lines))))
+                                       (ret (cons (gen-tr print-description #t) (cons tr lines))))
                                      (loop (car rest)
                                            (cdr rest)
                                            (cons tr lines)

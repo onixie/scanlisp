@@ -7,93 +7,104 @@
 
 (in-defdefs (counters sum-counters)
   (define-file-counter paths
-    ("" (lambda (c path) (path->string path))))
+    ("File" "" (lambda (cv path) (path->string path))))
   
-  (define-summary-counter total 
-    (0 (lambda (c alist) (add1 c))))
+  (define-summary-counter (total  paths)
+    ("Total Scan" 0 (lambda (cv v) (add1 cv))))
   
-  (define-simple-summary-counter (fail errors) 
-    (0 (lambda (c v) (+ c (if (zero? (string-length v)) 0 1)))))
+  (define-summary-counter (fail errors)
+    ("Fail" 0 (lambda (cv v) (+ cv (if (zero? (string-length v)) 0 1)))))
   
   (define-toplevel-counter tops 
-    (0 (lambda (c form) (add1 c))))
+    ("Count of Top-Level Forms" 0 (lambda (cv form) (add1 cv))))
   
-  (define-simple-summary-counter tops 
-    (0 +))
+  (define-summary-counter tops
+    ("Count of Top-Level Forms" 0 +))
   
   (define-toplevel-counter deeps 
-    (0 (lambda (c form) (max c (depth form)))))
+    ("Max Depth of Top-Level Forms" 0 (lambda (cv form) (max cv (depth form)))))
   
-  (define-simple-summary-counter deeps 
-    (0 max))
+  (define-summary-counter deeps 
+    ("Max Depth of Top-Level Forms" 0 max))
   
   (define-subform-counter defuns 
-    (0 (lambda (acc form)
-         (match-case form
-           ((`(defun ,name ,args ,body (... ...)))
-            (cond ((or (pair? args) (equal? args 'nil)) (add1 acc))
-                  (else acc)))
-           (else acc)))))
+    ("Count of `defun' Forms" 
+     0 
+     (lambda (cv form)
+       (match-case form
+         ((`(defun ,name ,args ,body (... ...)))
+          (cond ((or (pair? args) (equal? args 'nil)) (add1 cv))
+                (else cv)))
+         (else cv)))))
   
-  (define-simple-summary-counter defuns
-    (0 +))
+  (define-summary-counter defuns
+    ("Count of `defun' Forms" 0 +))
   
   (define-subform-counter defmacros 
-    (0 (lambda (acc form)
-         (match-case form
-           ((`(defmacro ,name ,args ,body (... ...)))
-            (cond ((pair? args) (add1 acc))
-                  (else acc)))
-           (else acc)))))
+    ("Count of `defmacro' Forms"
+     0 
+     (lambda (cv form)
+       (match-case form
+         ((`(defmacro ,name ,args ,body (... ...)))
+          (cond ((pair? args) (add1 cv))
+                (else cv)))
+         (else cv)))))
   
-  (define-simple-summary-counter defmacros 
-    (0 +))
+  (define-summary-counter defmacros 
+    ("Count of `defmacro' Forms" 0 +))
   
   (define-subform-counter defines 
-    (0 (lambda (acc form)
-         (match-case form
-           ((`(define ,name ,body (... ...)))
-            (add1 acc))
-           (else acc)))))
-  (define-simple-summary-counter defines 
-    (0 +))
+    ("Count of `define' Forms"
+     0
+     (lambda (cv form)
+       (match-case form
+         ((`(define ,name ,body (... ...)))
+          (add1 cv))
+         (else cv)))))
+  (define-summary-counter defines 
+    ("Count of `define' Forms" 0 +))
   
   (define-subform-counter lambdas
-    (0 (lambda (acc form)
-         (match-case form
-           ((`(lambda ,args ,body (... ...)))
-            (add1 acc))
-           (else acc)))))
+    ("Count of `lambda' Forms" 
+     0
+     (lambda (cv form)
+       (match-case form
+         ((`(lambda ,args ,body (... ...)))
+          (add1 cv))
+         (else cv)))))
   
-  (define-simple-summary-counter lambdas
-    (0 +))
+  (define-summary-counter lambdas
+    ("Count of `lambda' Forms" 0 +))
   
   (define-subform-counter lets
-    (0 (lambda (acc form)
-         (match form
-           (`(let ,bindings ,body (... ...)) 
-            (if (pair? bindings)
-                (add1 acc)
-                acc))
-           (else (match form
-                   (`(let ,name ,bindings ,body (... ...)) 
-                    (if (and (atom? name) (pair? bindings))
-                        (add1 acc)
-                        acc))
-                   (else acc)))))))
+    ("Count of `let' Forms" 
+     0
+     (lambda (cv form)
+       (match form
+         (`(let ,bindings ,body (... ...)) 
+          (if (pair? bindings)
+              (add1 cv)
+              cv))
+         (else (match form
+                 (`(let ,name ,bindings ,body (... ...)) 
+                  (if (and (atom? name) (pair? bindings))
+                      (add1 cv)
+                      cv))
+                 (else cv)))))))
   
-  (define-simple-summary-counter lets
-    (0 +))
+  (define-summary-counter lets
+    ("Count of `let' Forms" 0 +))
   
   (define-subform-counter valuesmax 
-    (0 (lambda (acc form)
-         (match form
-           (`(values ,value (... ...)) (max (length value) acc))
-           (else acc)))))
+    ("Max Length of `values' Form" 
+     0 
+     (lambda (cv form)
+       (match form
+         (`(values ,value (... ...)) (max (length value) cv))
+         (else cv)))))
   
-  (define-simple-summary-counter valuesmax 
-    (0 max))
+  (define-summary-counter valuesmax 
+    ("Max Length of `values' Form" 0 max))
   
   (define-error-counter errors 
-    ("" (lambda (acc exn) (format "~a" (exn-message exn)))))
-  )
+    ("Error" "" (lambda (cv exn) (format "~a" (exn-message exn))))))
