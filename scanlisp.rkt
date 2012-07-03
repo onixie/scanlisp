@@ -83,5 +83,5 @@
   
   (scan-project dir))
 
-(define (scanlisp.html (dir #f) #:row-sort (row-sort identity) #:column-sort (column-sort identity))
-  (scanlisp dir #:report html-reporter #:summary? #t #:row-sort row-sort #:column-sort column-sort))
+(define (scanlisp.html (dir #f) #:row-sort (row-sort identity) #:column-sort (column-sort identity) #:rich (rich #t))
+  (scanlisp dir #:report (if rich pretty-html-reporter simple-html-reporter) #:summary? #t #:row-sort row-sort #:column-sort column-sort))

@@ -1,0 +1,26 @@
+#Banner {
+	font-family: "DejaVu Sans Mono" Monospace;
+	border-style: none none solid none;
+	border-width: 1.2px;
+	margin-bottom: 10px;
+}
+
+#Summary {
+	font-family: "DejaVu Sans Mono" Monospace;
+	border-style: none none solid none;
+	border-width: 1.2px;
+	padding-bottom: 10px;
+	margin-bottom: 10px;
+}
+
+#Detail {
+	font-family: "DejaVu Sans Mono" Monospace;
+	padding-bottom: 30px;
+	border-style: none none solid none;
+	border-width: 1.2px;
+}
+
+#Footer {
+	font-family: "DejaVu Sans Mono" Monospace;
+	text-align:center;
+}

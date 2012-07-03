@@ -10,25 +10,25 @@
     ("File" "" (lambda (cv path) (path->string path))))
   
   (define-summary-counter (total  paths)
-    ("Total Scan" 0 (lambda (cv v) (add1 cv))))
+    ("Total" 0 (lambda (cv v) (add1 cv))))
   
   (define-summary-counter (fail errors)
     ("Fail" 0 (lambda (cv v) (+ cv (if (zero? (string-length v)) 0 1)))))
   
   (define-toplevel-counter tops 
-    ("Count of Top-Level Forms" 0 (lambda (cv form) (add1 cv))))
+    ("Top-Levels" 0 (lambda (cv form) (add1 cv))))
   
   (define-summary-counter tops
-    ("Count of Top-Level Forms" 0 +))
+    ("Top-Levels" 0 +))
   
   (define-toplevel-counter deeps 
-    ("Max Depth of Top-Level Forms" 0 (lambda (cv form) (max cv (depth form)))))
+    ("Top-Level Depth" 0 (lambda (cv form) (max cv (depth form)))))
   
   (define-summary-counter deeps 
-    ("Max Depth of Top-Level Forms" 0 max))
+    ("Top-Level Depth" 0 max))
   
   (define-subform-counter defuns 
-    ("Count of `defun' Forms" 
+    ("`defun' Forms" 
      0 
      (lambda (cv form)
        (match-case form
@@ -38,10 +38,10 @@
          (else cv)))))
   
   (define-summary-counter defuns
-    ("Count of `defun' Forms" 0 +))
+    ("`defun' Forms" 0 +))
   
   (define-subform-counter defmacros 
-    ("Count of `defmacro' Forms"
+    ("`defmacro' Forms"
      0 
      (lambda (cv form)
        (match-case form
@@ -51,10 +51,10 @@
          (else cv)))))
   
   (define-summary-counter defmacros 
-    ("Count of `defmacro' Forms" 0 +))
+    ("`defmacro' Forms" 0 +))
   
   (define-subform-counter defines 
-    ("Count of `define' Forms"
+    ("`define' Forms"
      0
      (lambda (cv form)
        (match-case form
@@ -62,10 +62,10 @@
           (add1 cv))
          (else cv)))))
   (define-summary-counter defines 
-    ("Count of `define' Forms" 0 +))
+    ("`define' Forms" 0 +))
   
   (define-subform-counter lambdas
-    ("Count of `lambda' Forms" 
+    ("`lambda' Forms" 
      0
      (lambda (cv form)
        (match-case form
@@ -74,10 +74,10 @@
          (else cv)))))
   
   (define-summary-counter lambdas
-    ("Count of `lambda' Forms" 0 +))
+    ("`lambda' Forms" 0 +))
   
   (define-subform-counter lets
-    ("Count of `let' Forms" 
+    ("`let' Forms" 
      0
      (lambda (cv form)
        (match form
@@ -93,10 +93,10 @@
                  (else cv)))))))
   
   (define-summary-counter lets
-    ("Count of `let' Forms" 0 +))
+    ("`let' Forms" 0 +))
   
   (define-subform-counter valuesmax 
-    ("Max Length of `values' Form" 
+    ("`values' Length" 
      0 
      (lambda (cv form)
        (match form
@@ -104,7 +104,7 @@
          (else cv)))))
   
   (define-summary-counter valuesmax 
-    ("Max Length of `values' Form" 0 max))
+    ("`values' Length" 0 max))
   
   (define-error-counter errors 
     ("Error" "" (lambda (cv exn) (format "~a" (exn-message exn))))))

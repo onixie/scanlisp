@@ -7,7 +7,8 @@
 
 (provide row-sorter
          column-sorter
-         html-reporter)
+         simple-html-reporter
+         pretty-html-reporter)
 
 (define (row-sorter column (op >))
   (lambda (results)
@@ -21,12 +22,12 @@
                                    (symbol->string (car cell)))))
          results)))
 
-(define (html-reporter results)
+(define (simple-html-reporter results)
   (let ((dir (third results))
         (summary (second results))
         (detail (first results))
         (page-name "ScanLisp Report")
-        (css-file "scanlisp.css"))
+        (scanlisp.css (format "~a~a" (current-directory) "css/scanlisp.css")))
     (send-url/contents
      (format "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">~a"
              (xexpr->string
@@ -34,17 +35,17 @@
                 (head 
                  (title ,page-name)
                  (link ((rel "stylesheet")
-                        (href ,(format "~a~a" (current-directory) css-file)))))
+                        (href ,scanlisp.css))))
                 (body
-                 (div ((class "Banner"))
+                 (div ((id "Banner"))
                       (h1 ,page-name))
                  ,@(if summary
-                       `((div ((class "Summary"))
+                       `((div ((id "Summary"))
                               ,(if dir
-                                   `(div ((class "SumProj"))
+                                   `(div ((id "SumProj"))
                                          ,(format "Project directory: ~a" dir))
                                    "")
-                              (table ((class "SumTab"))
+                              (table ((id "SumTab"))
                                      (tr ,@(map (lambda (p) 
                                                   (print-value (cdr p))
                                                   `(td ((class "SumHead")
@@ -58,8 +59,8 @@
                                                 summary)))))
                        '(""))
                  
-                 (div ((class "Detail"))
-                      (table ((class "DetTab"))
+                 (div ((id "Detail"))
+                      (table ((id "DetTab"))
                              ,@(let/cc ret
                                  (let loop ((row (car detail))
                                             (rest (cdr detail))
@@ -77,5 +78,88 @@
                                      (loop (car rest)
                                            (cdr rest)
                                            (cons tr lines)
-                                           (add1 ind))))))))))))
+                                           (add1 ind)))))))
+                 (div ((id "Footer"))
+                      "Powered by Racket"))))))
+    (void)))
+
+(define (pretty-html-reporter results)
+  (let ((dir (third results))
+        (summary (second results))
+        (detail (first results))
+        (page-name "ScanLisp Report")
+        (css-file (format "~a~a" (current-directory) "css/scanlisp.css"))
+        (page.css (format "~a~a" (current-directory) "css/page.css"))
+        (table.css (format "~a~a" (current-directory) "css/table.css"))
+        (table_jui.css (format "~a~a" (current-directory) "css/table_jui.css"))
+        (scanlisp.css (format "~a~a" (current-directory) "css/scanlisp.css"))
+        (jquery.js (format "~a~a" (current-directory) "js/jquery.js"))
+        (jquery-ui.js (format "~a~a" (current-directory) "js/jquery-ui.js"))
+        (jquery-dataTables.js (format "~a~a" (current-directory) "js/jquery.dataTables.js"))
+        (load.js (format "~a~a" (current-directory) "js/load.js")))
+    (send-url/contents
+     (format "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">~a"
+             (xexpr->string
+              `(html
+                (head 
+                 (title ,page-name)
+                 (link ((rel "stylesheet")
+                        (href ,page.css)))
+                 (link ((rel "stylesheet")
+                        (href ,table.css)))
+                 (link ((rel "stylesheet")
+                        (href ,table_jui.css)))
+                 (script ((src ,jquery.js)))
+                 (script ((src ,jquery-ui.js)))
+                 (script ((src ,jquery-dataTables.js)))
+                 (script ((src ,load.js))))
+                (body
+                 (div ((id "Banner"))
+                      (h1 ,page-name))
+                 ,@(if summary
+                       `((div ((id "Summary"))
+                              ,(if dir
+                                   `(div ((id "SumProj"))
+                                         ,(format "Project directory: ~a" dir))
+                                   "")
+                              (table ((id "SumTab")
+                                      (class "display")
+                                      (cellspacing "0"))
+                                     (thead (tr ,@(map (lambda (p) 
+                                                         (print-value (cdr p))
+                                                         `(td ((class "SumHead")
+                                                               (id ,(format "Sum~a" (car p))))
+                                                              ,(format "~a" (print-description (cdr p)))))
+                                                       summary)))
+                                     (tbody (tr ,@(map (lambda (p)
+                                                         `(td ((class "SumContent")
+                                                               (id ,(format "Sum~a" (car p))))
+                                                              ,(format "~a" (print-value (cdr p)))))
+                                                       summary))))))
+                       '(""))
+                 
+                 (div ((id "Detail"))
+                      (table ((id "DetTab")
+                              (class "display")
+                              (cellspacing "0"))
+                             ,@(let/cc ret
+                                 (let loop ((row (car detail))
+                                            (rest (cdr detail))
+                                            (lines null)
+                                            (ind 1))
+                                   (define (gen-tr (op print-value) (head #f))
+                                     `(tr ,@(map (lambda (p)
+                                                   `(td ((class ,(if head "DetHead" (if (even? ind) "DetEven" "DetOdd")))
+                                                         (id ,(format "Det~a" (car p))))
+                                                        ,(format "~a" (op (cdr p)))))
+                                                 row)))
+                                   (let ((tr (gen-tr)))
+                                     (when (null? rest)
+                                       (ret (list `(thead ,(gen-tr print-description #t)) `(tbody ,@(cons tr lines)))))
+                                     (loop (car rest)
+                                           (cdr rest)
+                                           (cons tr lines)
+                                           (add1 ind)))))))
+                 (div ((id "Footer"))
+                      "Powered by Racket"))))))
     (void)))

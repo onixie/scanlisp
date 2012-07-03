@@ -1,0 +1,60 @@
+#Banner {
+	font-family: "DejaVu Sans Mono" Monospace;
+	border-style: none none solid none;
+	border-width: 1.2px;
+	margin-bottom: 10px;
+}
+
+#Summary {
+	font-family: "DejaVu Sans Mono" Monospace;
+	border-style: none none solid none;
+	border-width: 1.2px;
+	padding-bottom: 10px;
+	margin-bottom: 10px;
+}
+
+#SumProj {
+	margin-bottom: 15px;
+}
+
+#SumTab *{
+	border: 1px solid #98bf21;
+	text-align: center;
+	border-spacing: none;
+	margin: none;
+	padding: 4px 5px 4px 5px;
+}
+
+.SumHead {
+	background-color: #A7C942;
+}
+
+#Detail {
+	font-family: "DejaVu Sans Mono" Monospace;
+	border-style: none none solid none;
+	border-width: 1.2px;
+	padding-bottom: 10px;
+	margin-bottom: 10px;
+}
+
+#DetTab *
+{
+	border: 1px solid #98bf21;
+	border-spacing: 10px;
+	margin-bottom: none;
+	padding: 4px 5px 4px 5px;
+}
+
+.DetHead {
+	background-color: #A7C942;
+	text-align: center;
+}
+
+.DetOdd {
+	background-color: #EAF2D3;
+}
+
+#Footer {
+	font-family: "DejaVu Sans Mono" Monospace;
+	text-align:center;
+}
