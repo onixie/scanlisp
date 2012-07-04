@@ -67,6 +67,8 @@
                    ((define-summary ...) (map (lambda (sum)
                                                 (unhygienize (format-symbol "define-~a" sum) #'counters))
                                               (syntax->datum #'(summaries ...))))
+                   (collect-counters (unhygienize (format-symbol "collect-~a" (syntax->datum #'counters)) #'counters))
+                   (summary-counters (unhygienize (format-symbol "summary-~a" (syntax->datum #'counters)) #'counters))
                    ((define-internal-summary ...) (generate-temporaries #'(summaries ...))))
        #'(begin
            (define-counters-collect counters 
@@ -80,6 +82,17 @@
              (counters count-subforms))
            (define-define-counter define-error-counter
              (counters count-errors))
+           
+           (define-syntax (collect-counters stx)
+             (syntax-case stx (:into)
+               ((_ (:into vals (... ...)) body1 (... ...))
+                (if (not (has #'(body1 (... ...))))
+                    #'(collect-counters (:into vals (... ...)) (void))
+                    (with-syntax ((counters (unhygienize 'counters #'(body1 (... ...)))))
+                      #`(generate-collect counters (:into-alist vals (... ...))
+                          body1 (... ...)))))
+               ((_ () body1 (... ...))
+                #'(collect-counters (:into) body1 (... ...)))))
            
            (define-counters-collect summaries
              (summary-details)) ...
@@ -123,7 +136,17 @@
                 (define-summary name ()))
                ((define-summary (name))
                 (define-summary name)))) ...
-           
+
+           (define-syntax (summary-counters stx)
+             (syntax-case stx ()
+               ((_ details)
+                (with-syntax (((summaries ...)
+                               (list (unhygienize (syntax->datum #'summaries) #'details) ...))
+                              (summary-details (unhygienize 'summary-details #'details)))
+                  #'(list
+                     (generate-collect summaries (:into-alist)
+                       (for ((detail (in-list details)))
+                         (summary-details detail))) ...)))))
            body ...
            (void))))
     ((_ (counters) body ...)

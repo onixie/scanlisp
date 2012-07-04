@@ -30,7 +30,7 @@
           (report dir summary details)))))
   
   (define (scan-file path)
-    (generate-collect counters ()
+    (collect-counters ()
       (letrec ((scan-form (lambda (form)
                             (cond ((not (pair? form)) form)
                                   ((pair? (car form))
@@ -80,21 +80,18 @@
        (datum->syntax #f (read-unescape-string ch in)))))
   
   (scan-project dir))
-
-(define (scanlisp.summary details)
-  (list
-   (generate-collect summary (:into-alist)
-     (for ((detail (in-list details)))
-       (summary-details detail)))
-   (generate-collect summary-max (:into-alist)
-     (for ((detail (in-list details)))
-       (summary-details detail)))
-   (generate-collect summary-min (:into-alist)
-     (for ((detail (in-list details)))
-       (summary-details detail)))))
-
+    
 (define (scanlisp.html (dir #f) #:row-sort (row-sort identity) #:column-sort (column-sort identity) #:column-filter (column-filter identity) #:rich (rich #t))
-  (scanlisp dir #:report (if rich pretty-html-reporter simple-html-reporter) #:summary scanlisp.summary #:row-sort row-sort #:column-sort column-sort #:column-filter column-filter))
+  (scanlisp dir #:report (if rich pretty-html-reporter simple-html-reporter) #:summary (lambda (d) (summary-counters d)) #:row-sort row-sort #:column-sort column-sort #:column-filter column-filter))
+
+(define-syntax (scanlisp.summary stx)
+  (syntax-case stx ()
+    ((_ details (summaries ...))
+     (with-syntax ((summary-details (unhygienize 'summary-details #'details)))
+       #'(values
+          (generate-collect summaries (:into-alist)
+            (for ((detail (in-list details)))
+              (summary-details detail))) ...)))))
 
 (define-syntax scanlisp.hist
   (syntax-rules ()
@@ -110,7 +107,7 @@
               (name (get-value 'name detail))))
           (let* ((l (round (inexact->exact (or low l 0))))
                  (h (round (inexact->exact (or high h 500))))
-                 (s (round (inexact->exact (or step (sqrt (abs (- h l)))))))
+                 (s (round (inexact->exact (or step (expt (abs (- h l)) 1/3)))))
                  (s (if (zero? s) 1 s)))
             (collect ((name (make-hist l h s) (lambda (cv v) (class-hist cv v))) (:into-values hist))
               (for ((detail (in-list ds)))

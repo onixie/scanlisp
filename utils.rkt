@@ -17,7 +17,7 @@
            atom?
            depth
            thread-wait-all
-           (for-syntax unhygienize))
+           (for-syntax unhygienize has))
   
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
@@ -43,8 +43,12 @@
       (thread-wait th)))
   
   (begin-for-syntax 
+    (define (has syntax)
+      (positive? (length (syntax->list syntax))))
     (define (unhygienize id (lctx #'_))
-      (format-id lctx "~a" id))
+      (if (syntax->list lctx)
+          (format-id (car (syntax->list lctx)) "~a" id)
+          (format-id lctx "~a" id)))
     (define (merge-assoc left right)
       (cond ((null? left) right)
             (else 
@@ -90,8 +94,6 @@
                     (list bind #'null #'rcons))
                    (else (error "Invalid collect binds"))))
            binds))
-    (define (has syntax)
-      (positive? (length (syntax->list syntax))))
     
     (syntax-case stx (:group :as :into-values :into-list :into-alist)
       ((collect (args ... (:into-values res ...)) body ...)
@@ -109,7 +111,7 @@
            cols))
       ((collect (args ... (:group (fvars ... :as gfvar) ...)) body ...)
        (if (not (has #'(body ...)))
-           #''()
+           #'(collect (args ... (:group (fvars ... :as gfvar) ...)) (void))
            #`(collect (args ...)
                (letrec ((gfvar
                          (lambda rest-vars
@@ -118,7 +120,7 @@
                  body ...))))
       ((collect (binds ...) body ...)
        (if (not (has #'(body ...)))
-           #''()
+           #'(collect (binds ...) (void))
            (if (not (has #'(binds ...)))
                #'(begin body ... '())
                (with-syntax* ((((fvar init acc) ...) (make-default-binds (syntax->list #'(binds ...))))

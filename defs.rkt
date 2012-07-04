@@ -2,10 +2,13 @@
 
 (require "utils.rkt")
 (require "defdefs.rkt")
-(provide (for-syntax counters
-                     summary
-                     summary-max
-                     summary-min)
+(provide collect-counters
+         summary-counters
+         (for-syntax
+          counters
+          summary
+          summary-max
+          summary-min)
          get-value
          get-description
          print-value
