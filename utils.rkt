@@ -90,6 +90,9 @@
                     (list bind #'null #'rcons))
                    (else (error "Invalid collect binds"))))
            binds))
+    (define (has syntax)
+      (positive? (length (syntax->list syntax))))
+    
     (syntax-case stx (:group :as :into-values :into-list :into-alist)
       ((collect (args ... (:into-values res ...)) body ...)
        #'(let* ((cols (map cdr (collect (args ...) body ...))))
@@ -105,23 +108,30 @@
            (set! res cols) ...
            cols))
       ((collect (args ... (:group (fvars ... :as gfvar) ...)) body ...)
-       #'(collect (args ...)
-           (letrec ((gfvar
-                     (lambda rest-vars
-                       (apply fvars rest-vars) ...
-                       (void))) ...)
-             body ...)))
+       (if (not (has #'(body ...)))
+           #''()
+           #`(collect (args ...)
+               (letrec ((gfvar
+                         (lambda rest-vars
+                           (apply fvars rest-vars) ...
+                           (void))) ...)
+                 body ...))))
       ((collect (binds ...) body ...)
-       (with-syntax* 
-        ((((fvar init acc) ...) (make-default-binds (syntax->list #'(binds ...))))
-         ((var ...) (generate-temporaries (syntax->list #'(fvar ...)))))
-        #'(let ((var init) ...)
-            (letrec ((fvar
-                      (lambda rest-vars
-                        (set! var (apply acc var rest-vars))
-                        var)) ...)
-              body ...
-              (list (cons 'fvar var) ...)))))))
+       (if (not (has #'(body ...)))
+           #''()
+           (if (not (has #'(binds ...)))
+               #'(begin body ... '())
+               (with-syntax* ((((fvar init acc) ...) (make-default-binds (syntax->list #'(binds ...))))
+                              ((var ...) (generate-temporaries (syntax->list #'(fvar ...)))))
+                             (if (not (has #'(var ...)))
+                                 #'(begin body ... '())
+                                 #'(let ((var init) ...)
+                                     (letrec ((fvar
+                                               (lambda rest-vars
+                                                 (set! var (apply acc var rest-vars))
+                                                 var)) ...)
+                                       body ...
+                                       (list (cons 'fvar var) ...))))))))))
   
   (define-syntax (define-collect stx)
     (syntax-case stx (:group :as)

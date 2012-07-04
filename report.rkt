@@ -1,14 +1,19 @@
 #lang racket
 
 (require "utils.rkt")
-(require "defdefs.rkt")
+(require "defs.rkt")
 (require xml)
 (require net/sendurl)
+(require "hist-report.rkt")
 
 (provide row-sorter
          column-sorter
+         column-filter
          simple-html-reporter
-         pretty-html-reporter)
+         pretty-html-reporter
+         make-hist
+         class-hist
+         plot-hist)
 
 (define (row-sorter column (op >))
   (lambda (results)
@@ -22,11 +27,14 @@
                                    (symbol->string (car cell)))))
          results)))
 
-(define (simple-html-reporter results)
-  (let ((dir (third results))
-        (summary (second results))
-        (detail (first results))
-        (page-name "ScanLisp Report")
+(define (column-filter columns #:show (show not))
+  (lambda (results)
+    (map (lambda (result)
+           (filter (lambda (cell) (show (member (car cell) columns))) result))
+         results)))
+
+(define (simple-html-reporter dir summary detail)
+  (let ((page-name "ScanLisp Report")
         (scanlisp.css (format "~a~a" (current-directory) "css/scanlisp.css")))
     (send-url/contents
      (format "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">~a"
@@ -39,24 +47,26 @@
                 (body
                  (div ((id "Banner"))
                       (h1 ,page-name))
-                 ,@(if summary
+                 ,@(if (pair? summary)
                        `((div ((id "Summary"))
                               ,(if dir
                                    `(div ((id "SumProj"))
                                          ,(format "Project directory: ~a" dir))
                                    "")
-                              (table ((id "SumTab"))
-                                     (tr ,@(map (lambda (p) 
-                                                  (print-value (cdr p))
-                                                  `(td ((class "SumHead")
-                                                        (id ,(format "Sum~a" (car p))))
-                                                       ,(format "~a" (print-description (cdr p)))))
-                                                summary))
-                                     (tr ,@(map (lambda (p)
-                                                  `(td ((class "SumContent")
-                                                        (id ,(format "Sum~a" (car p))))
-                                                       ,(format "~a" (print-value (cdr p)))))
-                                                summary)))))
+                              ,@(map (lambda (summary)
+                                       `(table ((class "SumTab"))
+                                               (tr ,@(map (lambda (p)
+                                                            (print-value (cdr p))
+                                                            `(td ((class "SumHead")
+                                                                  (id ,(format "Sum~a" (car p))))
+                                                                 ,(format "~a" (print-description (cdr p)))))
+                                                          summary))
+                                               (tr ,@(map (lambda (p)
+                                                            `(td ((class "SumContent")
+                                                                  (id ,(format "Sum~a" (car p))))
+                                                                 ,(format "~a" (print-value (cdr p)))))
+                                                          summary))))
+                                     summary)))
                        '(""))
                  
                  (div ((id "Detail"))
@@ -83,11 +93,8 @@
                       "Powered by Racket"))))))
     (void)))
 
-(define (pretty-html-reporter results)
-  (let ((dir (third results))
-        (summary (second results))
-        (detail (first results))
-        (page-name "ScanLisp Report")
+(define (pretty-html-reporter dir summary detail)
+  (let ((page-name "ScanLisp Report")
         (css-file (format "~a~a" (current-directory) "css/scanlisp.css"))
         (page.css (format "~a~a" (current-directory) "css/page.css"))
         (table.css (format "~a~a" (current-directory) "css/table.css"))
@@ -116,29 +123,37 @@
                 (body
                  (div ((id "Banner"))
                       (h1 ,page-name))
-                 ,@(if summary
+                 ,@(if (pair? summary)
                        `((div ((id "Summary"))
+                              (h2 "Summary")
                               ,(if dir
                                    `(div ((id "SumProj"))
                                          ,(format "Project directory: ~a" dir))
                                    "")
-                              (table ((id "SumTab")
-                                      (class "display")
-                                      (cellspacing "0"))
-                                     (thead (tr ,@(map (lambda (p) 
-                                                         (print-value (cdr p))
-                                                         `(td ((class "SumHead")
-                                                               (id ,(format "Sum~a" (car p))))
-                                                              ,(format "~a" (print-description (cdr p)))))
-                                                       summary)))
-                                     (tbody (tr ,@(map (lambda (p)
-                                                         `(td ((class "SumContent")
-                                                               (id ,(format "Sum~a" (car p))))
-                                                              ,(format "~a" (print-value (cdr p)))))
-                                                       summary))))))
+                              ,@(map (lambda (summary heading)
+                                       (if (pair? summary)
+                                           `(div ((class "SumTabDiv")) 
+                                                 (h4 ((class "SumTabTitle")) ,heading)
+                                                 (table ((class "SumTab display")
+                                                         (cellspacing "0"))
+                                                        (thead (tr ,@(map (lambda (p) 
+                                                                            (print-value (cdr p))
+                                                                            `(td ((class "SumHead")
+                                                                                  (id ,(format "Sum~a" (car p))))
+                                                                                 ,(format "~a" (print-description (cdr p)))))
+                                                                          summary)))
+                                                        (tbody (tr ,@(map (lambda (p)
+                                                                            `(td ((class "SumContent")
+                                                                                  (id ,(format "Sum~a" (car p))))
+                                                                                 ,(format "~a" (print-value (cdr p)))))
+                                                                          summary)))))
+                                           ""))
+                                     summary
+                                     (list "Total" "Max" "Min"))))
                        '(""))
                  
                  (div ((id "Detail"))
+                      (h2 "Detail")
                       (table ((id "DetTab")
                               (class "display")
                               (cellspacing "0"))

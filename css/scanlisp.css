@@ -17,7 +17,7 @@
 	margin-bottom: 15px;
 }
 
-#SumTab *{
+.SumTab *{
 	border: 1px solid #98bf21;
 	text-align: center;
 	border-spacing: none;

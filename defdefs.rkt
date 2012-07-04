@@ -1,7 +1,9 @@
 #lang racket
 
 (require "utils.rkt")
-(provide in-defdefs
+(require (for-syntax racket/syntax))
+
+(provide define-counters
          print-value
          get-value
          print-description
@@ -32,7 +34,7 @@
     ()
     (:group (:as groups) ...)))
 
-(define-syntax-rule (define-define-counter def-name collect groups ...)
+(define-syntax-rule (define-define-counter def-name (collect groups ...))
   (define-syntax def-name
     (syntax-rules ()
       ((def-name name (desc value accumulator printer))
@@ -55,59 +57,76 @@
       ((def-name name)
        (def-name name ())))))
 
-(define-syntax (in-defdefs stx)
-  (syntax-case stx ()
-    ((_ (counters sum-counters) body ...)
+(define-syntax (define-counters stx)
+  (syntax-case stx (:with-summary)
+    ((_ (counters (:with-summary summaries ...)) body ...)
      (with-syntax ((define-file-counter (unhygienize 'define-file-counter #'counters))
                    (define-toplevel-counter (unhygienize 'define-toplevel-counter #'counters))
                    (define-subform-counter (unhygienize 'define-subform-counter #'counters))
                    (define-error-counter (unhygienize 'define-error-counter #'counters))
-                   (define-summary-counter (unhygienize 'define-summary-counter #'sum-counters)))
+                   ((define-summary ...) (map (lambda (sum)
+                                                (unhygienize (format-symbol "define-~a" sum) #'counters))
+                                              (syntax->datum #'(summaries ...))))
+                   ((define-internal-summary ...) (generate-temporaries #'(summaries ...))))
        #'(begin
-           (define-counters-collect counters (count-pth count-top count-sub count-err))
-           (define-counters-collect sum-counters (sum-prj))
+           (define-counters-collect counters 
+             (count-files count-toplevels count-subforms count-errors))
            
-           (define-define-counter define-file-counter counters count-pth)
-           (define-define-counter define-toplevel-counter counters count-top)
-           (define-define-counter define-subform-counter counters count-sub)
-           (define-define-counter define-error-counter counters count-err)
+           (define-define-counter define-file-counter 
+             (counters count-files))
+           (define-define-counter define-toplevel-counter
+             (counters count-toplevels))
+           (define-define-counter define-subform-counter
+             (counters count-subforms))
+           (define-define-counter define-error-counter
+             (counters count-errors))
            
-           (define-define-counter define-internal-summary-counter sum-counters sum-prj)
-           (define-syntax define-summary-counter
+           (define-counters-collect summaries
+             (summary-details)) ...
+                                
+           (define-define-counter define-internal-summary
+             (summaries summary-details)) ...
+                                     
+           (define-syntax define-summary
              (syntax-rules ()
-               ((define-summary-counter (name fname) (desc value accumulator printer))
-                (define-internal-summary-counter name (desc value 
-                                                            (lambda (cv alist)
-                                                              (accumulator cv
-                                                                           (counter-value (assoc-value 'fname alist))))
-                                                            printer)))
-               ((define-summary-counter (name fname) (desc value accumulator))
-                (define-summary-counter (name fname) (desc value accumulator values)))
-               ((define-summary-counter (name fname) (desc))
-                (define-summary-counter (name fname) (desc null rcons)))
-               ((define-summary-counter (name fname) ())
-                (define-summary-counter (name fname) ("")))
-               ((define-summary-counter (name fname))
-                (define-summary-counter (name fname) ()))
-               ((define-summary-counter name (desc value accumulator printer))
-                (define-summary-counter (name name) (desc value accumulator printer)))
-               ((define-summary-counter name (desc value accumulator))
-                (define-summary-counter (name name) (desc value accumulator)))
-               ((define-summary-counter name (desc))
-                (define-summary-counter (name name) (desc)))
-               ((define-summary-counter name ())
-                (define-summary-counter (name name) ()))
-               ((define-summary-counter name)
-                (define-summary-counter (name name)))
-               ((define-summary-counter (name) (desc value accumulator printer))
-                (define-summary-counter name (desc value accumulator printer)))
-               ((define-summary-counter (name) (desc value accumulator))
-                (define-summary-counter name (desc value accumulator)))
-               ((define-summary-counter (name) (desc))
-                (define-summary-counter name (desc)))
-               ((define-summary-counter (name) ())
-                (define-summary-counter name ()))
-               ((define-summary-counter (name))
-                (define-summary-counter name))))
+               ((define-summary (name fname) (desc value accumulator printer))
+                (define-internal-summary name (desc value 
+                                                    (lambda (cv alist)
+                                                      (accumulator cv
+                                                                   (counter-value (assoc-value 'fname alist))))
+                                                    printer)))
+               ((define-summary (name fname) (desc value accumulator))
+                (define-summary (name fname) (desc value accumulator values)))
+               ((define-summary (name fname) (desc))
+                (define-summary (name fname) (desc null rcons)))
+               ((define-summary (name fname) ())
+                (define-summary (name fname) ("")))
+               ((define-summary (name fname))
+                (define-summary (name fname) ()))
+               ((define-summary name (desc value accumulator printer))
+                (define-summary (name name) (desc value accumulator printer)))
+               ((define-summary name (desc value accumulator))
+                (define-summary (name name) (desc value accumulator)))
+               ((define-summary name (desc))
+                (define-summary (name name) (desc)))
+               ((define-summary name ())
+                (define-summary (name name) ()))
+               ((define-summary name)
+                (define-summary (name name)))
+               ((define-summary (name) (desc value accumulator printer))
+                (define-summary name (desc value accumulator printer)))
+               ((define-summary (name) (desc value accumulator))
+                (define-summary name (desc value accumulator)))
+               ((define-summary (name) (desc))
+                (define-summary name (desc)))
+               ((define-summary (name) ())
+                (define-summary name ()))
+               ((define-summary (name))
+                (define-summary name)))) ...
            
-           body ...)))))
+           body ...
+           (void))))
+    ((_ (counters) body ...)
+     #'(define-counters (counters (:with-summary)) body ...))
+    ((_ counters body ...)
+     #'(define-counters (counters) body ...))))

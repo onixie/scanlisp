@@ -3,28 +3,40 @@
 (require "utils.rkt")
 (require "defdefs.rkt")
 (provide (for-syntax counters
-                     sum-counters))
+                     summary
+                     summary-max
+                     summary-min)
+         get-value
+         get-description
+         print-value
+         print-description)
 
-(in-defdefs (counters sum-counters)
+(define-counters (counters (:with-summary summary summary-max summary-min))
   (define-file-counter paths
     ("File" "" (lambda (cv path) (path->string path))))
-  
-  (define-summary-counter (total  paths)
-    ("Total" 0 (lambda (cv v) (add1 cv))))
-  
-  (define-summary-counter (fail errors)
-    ("Fail" 0 (lambda (cv v) (+ cv (if (zero? (string-length v)) 0 1)))))
   
   (define-toplevel-counter tops 
     ("Top-Levels" 0 (lambda (cv form) (add1 cv))))
   
-  (define-summary-counter tops
-    ("Top-Levels" 0 +))
-  
   (define-toplevel-counter deeps 
     ("Top-Level Depth" 0 (lambda (cv form) (max cv (depth form)))))
   
-  (define-summary-counter deeps 
+  (define-summary (total  paths)
+    ("Total" 0 (lambda (cv v) (add1 cv))))
+  
+  (define-summary (fail errors)
+    ("Fail" 0 (lambda (cv v) (+ cv (if (zero? (string-length v)) 0 1)))))
+  
+  (define-summary tops
+    ("Top-Levels" 0 +))
+  
+  (define-summary-max tops
+    ("Top-Levels" 0 max))
+  
+  (define-summary-min tops
+    ("Top-Levels" +inf.0 min))
+  
+  (define-summary-max deeps
     ("Top-Level Depth" 0 max))
   
   (define-subform-counter defuns 
@@ -37,9 +49,12 @@
                 (else cv)))
          (else cv)))))
   
-  (define-summary-counter defuns
+  (define-summary defuns
     ("`defun' Forms" 0 +))
   
+  (define-summary-max defuns
+    ("`defun' Forms" 0 max))
+    
   (define-subform-counter defmacros 
     ("`defmacro' Forms"
      0 
@@ -50,8 +65,11 @@
                 (else cv)))
          (else cv)))))
   
-  (define-summary-counter defmacros 
+  (define-summary defmacros 
     ("`defmacro' Forms" 0 +))
+    
+  (define-summary-max defmacros 
+    ("`defmacro' Forms" 0 max))
   
   (define-subform-counter defines 
     ("`define' Forms"
@@ -61,8 +79,12 @@
          ((`(define ,name ,body (... ...)))
           (add1 cv))
          (else cv)))))
-  (define-summary-counter defines 
+  
+  (define-summary defines 
     ("`define' Forms" 0 +))
+  
+  (define-summary-max defines 
+    ("`define' Forms" 0 max))
   
   (define-subform-counter lambdas
     ("`lambda' Forms" 
@@ -73,8 +95,11 @@
           (add1 cv))
          (else cv)))))
   
-  (define-summary-counter lambdas
+  (define-summary lambdas
     ("`lambda' Forms" 0 +))
+  
+  (define-summary-max lambdas
+    ("`lambda' Forms" 0 max))
   
   (define-subform-counter lets
     ("`let' Forms" 
@@ -92,8 +117,11 @@
                       cv))
                  (else cv)))))))
   
-  (define-summary-counter lets
+  (define-summary lets
     ("`let' Forms" 0 +))
+  
+  (define-summary-max lets
+    ("`let' Forms" 0 max))
   
   (define-subform-counter valuesmax 
     ("`values' Length" 
@@ -103,7 +131,7 @@
          (`(values ,value (... ...)) (max (length value) cv))
          (else cv)))))
   
-  (define-summary-counter valuesmax 
+  (define-summary-max valuesmax 
     ("`values' Length" 0 max))
   
   (define-error-counter errors 
