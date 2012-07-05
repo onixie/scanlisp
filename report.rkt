@@ -11,14 +11,12 @@
          column-filter
          simple-html-reporter
          pretty-html-reporter
-         make-hist
-         class-hist
-         plot-hist)
+         histogram-plotter)
 
 (define (row-sorter column (op >))
   (lambda (results)
     (sort results op #:key (lambda (row)
-                             (get-value column row)))))
+                             (get-value-of column row)))))
 
 (define (column-sorter (op string>?))
   (lambda (results)
@@ -66,7 +64,7 @@
                                                                   (id ,(format "Sum~a" (car p))))
                                                                  ,(format "~a" (print-value (cdr p)))))
                                                           summary))))
-                                     summary)))
+                                     (rest summary))))
                        '(""))
                  
                  (div ((id "Detail"))
@@ -148,7 +146,7 @@
                                                                                  ,(format "~a" (print-value (cdr p)))))
                                                                           summary)))))
                                            ""))
-                                     summary
+                                     (rest summary)
                                      (list "Total" "Max" "Min"))))
                        '(""))
                  
@@ -178,3 +176,18 @@
                  (div ((id "Footer"))
                       "Powered by Racket"))))))
     (void)))
+
+(define (histogram-plotter (lower #f) (upper #f) (step #f) #:title (title "") #:x-label (x-label "") #:y-label (y-label ""))
+  (define ->int (compose inexact->exact round))
+  (lambda vs
+    (let* ((upper (or upper (apply max vs)))
+           (lower (or lower (apply min vs)))
+           (u (->int (max upper lower)))
+           (l (->int (min upper lower)))
+           (s (or step (expt (- u l) 1/3)))
+           (s (->int (if (zero? s) 1 s)))
+           (h (make-hist l u s))
+           (r (/ (- u l) (* s 4/5) 9))
+           (r (if (> r 39) 40 r)))
+      (map (lambda (v) (class-hist h (->int v))) vs)
+      (plot-hist h #:title title #:x-label x-label #:y-label y-label #:width-ratio r))))

@@ -5,9 +5,10 @@
 
 (provide define-counters
          print-value
-         get-value
+         get-value-of
+         get-values-of
          print-description
-         get-description)
+         get-description-of)
 
 (struct counter (desc value printer) #:mutable)
 
@@ -20,14 +21,24 @@
         ('value value)
         (else value)))))
 
-(define (make-counter-in-collect-getter field-proc)
-  (lambda (key counters-collect)
-    (field-proc (assoc-value key counters-collect))))
+(define (make-counters-getter field-proc)
+  (lambda (key counters)
+    (let ((it (assoc-value key counters)))
+      (when it
+        (field-proc it)))))
+
+(define (make-multiple-counters-getter field-proc)
+  (lambda (key counters-lst)
+    (let ((them (map (lambda (counters) ((make-counters-getter field-proc) key counters))
+                     counters-lst)))
+      (when (not (andmap void? them))
+        them))))
 
 (define print-value (make-counter-printer 'value))
 (define print-description (make-counter-printer 'description))
-(define get-value (make-counter-in-collect-getter counter-value))
-(define get-description (make-counter-in-collect-getter counter-desc))
+(define get-value-of (make-counters-getter counter-value))
+(define get-description-of (make-counters-getter counter-desc))
+(define get-values-of (make-multiple-counters-getter counter-value))
 
 (define-syntax-rule (define-counters-collect collect (groups ...))
   (define-collect collect
@@ -45,7 +56,7 @@
                                           (counter-value cv)))) 
            (lambda (cv v)
              (set-counter-value! cv 
-                                 (accumulator (counter-value cv) v)) 
+                                 (accumulator (counter-value cv) v))
              cv)))
          (:group (name :into groups) ...)))
       ((def-name name (desc value accumulator))
@@ -65,10 +76,13 @@
                    (define-subform-counter (unhygienize 'define-subform-counter #'counters))
                    (define-error-counter (unhygienize 'define-error-counter #'counters))
                    ((define-summary ...) (map (lambda (sum)
-                                                (unhygienize (format-symbol "define-~a" sum) #'counters))
+                                                (unhygienize (format-symbol "define-summary-~a" sum) #'counters))
                                               (syntax->datum #'(summaries ...))))
                    (collect-counters (unhygienize (format-symbol "collect-~a" (syntax->datum #'counters)) #'counters))
                    (summary-counters (unhygienize (format-symbol "summary-~a" (syntax->datum #'counters)) #'counters))
+                   ((summary-counters-only ...) (map (lambda (sum)
+                                                       (unhygienize (format-symbol "summary-~a-only-~a" (syntax->datum #'counters) sum) #'counters))
+                                                     (syntax->datum #'(summaries ...))))
                    ((define-internal-summary ...) (generate-temporaries #'(summaries ...))))
        #'(begin
            (define-counters-collect counters 
@@ -87,7 +101,7 @@
              (syntax-case stx (:into)
                ((_ (:into vals (... ...)) body1 (... ...))
                 (if (not (has #'(body1 (... ...))))
-                    #'(collect-counters (:into vals (... ...)) (void))
+                    #''()
                     (with-syntax ((counters (unhygienize 'counters #'(body1 (... ...)))))
                       #`(generate-collect counters (:into-alist vals (... ...))
                           body1 (... ...)))))
@@ -103,10 +117,12 @@
            (define-syntax define-summary
              (syntax-rules ()
                ((define-summary (name fname) (desc value accumulator printer))
-                (define-internal-summary name (desc value 
+                (define-internal-summary name (desc value
                                                     (lambda (cv alist)
-                                                      (accumulator cv
-                                                                   (counter-value (assoc-value 'fname alist))))
+                                                      (let ((it (get-value-of 'fname alist)))
+                                                        (if (void? it)
+                                                            cv
+                                                            (accumulator cv it))))
                                                     printer)))
                ((define-summary (name fname) (desc value accumulator))
                 (define-summary (name fname) (desc value accumulator values)))
@@ -143,10 +159,20 @@
                 (with-syntax (((summaries ...)
                                (list (unhygienize (syntax->datum #'summaries) #'details) ...))
                               (summary-details (unhygienize 'summary-details #'details)))
-                  #'(list
-                     (generate-collect summaries (:into-alist)
-                       (for ((detail (in-list details)))
-                         (summary-details detail))) ...)))))
+                  #'(let ((ds details))
+                      (list
+                       (generate-collect summaries (:into-alist)
+                         (for ((detail (in-list ds)))
+                           (summary-details detail))) ...))))))
+           
+           (define-syntax (summary-counters-only stx)
+             (syntax-case stx ()
+               ((_ details)
+                (with-syntax ((summaries (unhygienize (syntax->datum #'summaries) #'details))
+                              (summary-details (unhygienize 'summary-details #'details)))
+                  #'(generate-collect summaries (:into-alist)
+                      (for ((detail (in-list details)))
+                        (summary-details detail))))))) ...
            body ...
            (void))))
     ((_ (counters) body ...)

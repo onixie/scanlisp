@@ -8,7 +8,7 @@
            add-collect!
            generate-collect
            same-part
-           common-base
+           same-part2
            values->list
            rcons
            match-case
@@ -222,5 +222,5 @@
              (s2 (cadr strs)))
          (same-part (cons (sp s1 s2) (cddr strs)))))))
   
-  (define (common-base str1 str2)
+  (define (same-part2 str1 str2)
     (same-part (list str1 str2))))

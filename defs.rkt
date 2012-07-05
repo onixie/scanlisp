@@ -2,47 +2,40 @@
 
 (require "utils.rkt")
 (require "defdefs.rkt")
+
 (provide collect-counters
          summary-counters
-         (for-syntax
-          counters
-          summary
-          summary-max
-          summary-min)
-         get-value
-         get-description
+         summary-counters-only-project
+         summary-counters-only-total
+         summary-counters-only-maximum
+         summary-counters-only-minimum
+         (for-syntax counters total maximum minimum project))
+
+(provide get-value-of
+         get-values-of
+         get-description-of
          print-value
          print-description)
 
-(define-counters (counters (:with-summary summary summary-max summary-min))
-  (define-file-counter paths
-    ("File" "" (lambda (cv path) (path->string path))))
+(define-counters (counters (:with-summary project total maximum minimum))
+  (define-file-counter file-path
+    ("Path" "" (lambda (cv path) (path->string path))))
+  (define-summary-project file-path
+    ("Path" (void) (lambda (cv path) (if (void? cv)
+                                         path
+                                         (string-trim (same-part2 cv path) #rx"[^/]+" #:left? #f)))))
   
-  (define-toplevel-counter tops 
+  (define-toplevel-counter toplevels 
     ("Top-Levels" 0 (lambda (cv form) (add1 cv))))
-  
-  (define-toplevel-counter deeps 
-    ("Top-Level Depth" 0 (lambda (cv form) (max cv (depth form)))))
-  
-  (define-summary (total  paths)
-    ("Total" 0 (lambda (cv v) (add1 cv))))
-  
-  (define-summary (fail errors)
-    ("Fail" 0 (lambda (cv v) (+ cv (if (zero? (string-length v)) 0 1)))))
-  
-  (define-summary tops
+  (define-summary-project toplevels 
     ("Top-Levels" 0 +))
   
-  (define-summary-max tops
-    ("Top-Levels" 0 max))
-  
-  (define-summary-min tops
-    ("Top-Levels" +inf.0 min))
-  
-  (define-summary-max deeps
+  (define-toplevel-counter form-depth 
+    ("Top-Level Depth" 0 (lambda (cv form) (max cv (depth form)))))
+  (define-summary-project form-depth 
     ("Top-Level Depth" 0 max))
   
-  (define-subform-counter defuns 
+  (define-subform-counter defuns
     ("`defun' Forms" 
      0 
      (lambda (cv form)
@@ -51,14 +44,10 @@
           (cond ((or (pair? args) (equal? args 'nil)) (add1 cv))
                 (else cv)))
          (else cv)))))
-  
-  (define-summary defuns
+  (define-summary-project defuns
     ("`defun' Forms" 0 +))
   
-  (define-summary-max defuns
-    ("`defun' Forms" 0 max))
-    
-  (define-subform-counter defmacros 
+  (define-subform-counter defmacros
     ("`defmacro' Forms"
      0 
      (lambda (cv form)
@@ -67,14 +56,10 @@
           (cond ((pair? args) (add1 cv))
                 (else cv)))
          (else cv)))))
-  
-  (define-summary defmacros 
+  (define-summary-project defmacros
     ("`defmacro' Forms" 0 +))
-    
-  (define-summary-max defmacros 
-    ("`defmacro' Forms" 0 max))
   
-  (define-subform-counter defines 
+  (define-subform-counter defines
     ("`define' Forms"
      0
      (lambda (cv form)
@@ -82,12 +67,8 @@
          ((`(define ,name ,body (... ...)))
           (add1 cv))
          (else cv)))))
-  
-  (define-summary defines 
+  (define-summary-project defines
     ("`define' Forms" 0 +))
-  
-  (define-summary-max defines 
-    ("`define' Forms" 0 max))
   
   (define-subform-counter lambdas
     ("`lambda' Forms" 
@@ -97,12 +78,8 @@
          ((`(lambda ,args ,body (... ...)))
           (add1 cv))
          (else cv)))))
-  
-  (define-summary lambdas
+  (define-summary-project lambdas
     ("`lambda' Forms" 0 +))
-  
-  (define-summary-max lambdas
-    ("`lambda' Forms" 0 max))
   
   (define-subform-counter lets
     ("`let' Forms" 
@@ -119,23 +96,75 @@
                       (add1 cv)
                       cv))
                  (else cv)))))))
-  
-  (define-summary lets
+  (define-summary-project lets
     ("`let' Forms" 0 +))
   
-  (define-summary-max lets
-    ("`let' Forms" 0 max))
-  
-  (define-subform-counter valuesmax 
+  (define-subform-counter values-length
     ("`values' Length" 
      0 
      (lambda (cv form)
        (match form
          (`(values ,value (... ...)) (max (length value) cv))
          (else cv)))))
-  
-  (define-summary-max valuesmax 
+  (define-summary-project values-length
     ("`values' Length" 0 max))
   
   (define-error-counter errors 
-    ("Error" "" (lambda (cv exn) (format "~a" (exn-message exn))))))
+    ("Error" "" (lambda (cv exn) (format "~a" (exn-message exn)))))
+  
+  (define-summary-total (total file-path)
+    ("Total" 0 (lambda (cv v) (add1 cv))))
+  
+  (define-summary-total (fail errors)
+    ("Fail" 0 (lambda (cv v) (+ cv (if (zero? (string-length v)) 0 1)))))
+  
+  (define-summary-total (total-toplevels toplevels)
+    ("Top-Levels" 0 +))
+  
+  (define-summary-maximum (max-toplevels toplevels)
+    ("Top-Levels" 0 max))
+  
+  (define-summary-minimum (min-toplevels toplevels)
+    ("Top-Levels" +inf.0 (compose inexact->exact min)))
+  
+  (define-summary-maximum (max-form-depth form-depth)
+    ("Top-Level Depth" 0 max))
+  
+  (define-summary-minimum (min-form-depth form-depth)
+    ("Top-Level Depth" +inf.0 (compose inexact->exact min)))
+  
+  (define-summary-total (total-defuns defuns)
+    ("`defun' Forms" 0 +))
+  
+  (define-summary-maximum (max-defuns defuns)
+    ("`defun' Forms" 0 max))
+  
+  (define-summary-total (total-defmacros defmacros)
+    ("`defmacro' Forms" 0 +))
+  
+  (define-summary-maximum (max-defmacros defmacros)
+    ("`defmacro' Forms" 0 max))
+  
+  (define-summary-total (total-defines defines)
+    ("`define' Forms" 0 +))
+  
+  (define-summary-maximum (max-defines defines)
+    ("`define' Forms" 0 max))
+  
+  (define-summary-total (total-lambdas lambdas)
+    ("`lambda' Forms" 0 +))
+  
+  (define-summary-maximum (max-lambdas lambdas)
+    ("`lambda' Forms" 0 max))
+  
+  (define-summary-total (total-lets lets)
+    ("`let' Forms" 0 +))
+  
+  (define-summary-maximum (max-lets lets)
+    ("`let' Forms" 0 max))
+  
+  (define-summary-maximum (max-values-length values-length)
+    ("`values' Length" 0 max))
+  
+  (define-summary-minimum (min-values-length values-length)
+    ("`values' Length" +inf.0 (compose inexact->exact min))))

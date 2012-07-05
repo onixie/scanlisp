@@ -4,7 +4,13 @@
 (require "defs.rkt")
 (require "report.rkt")
 
-(define (scanlisp (dir #f) #:report (report (lambda (prj sum det) det)) #:summary (summary (lambda (det) null)) #:row-sort (row-sort identity) #:column-sort (column-sort identity) #:column-filter (column-filter identity))
+(provide scanlisp
+         (rename-out (scanlisp.summary summary)
+                     (scanlisp.summarize summarize)
+                     (scanlisp.html report)
+                     (scanlisp.compare compare)))
+
+(define (scanlisp (dir #f))
   (define current-dialect (make-parameter empty))
   (define lisp-regexp #rx"(?:[.])(rkt|scm|ss|lisp|lisp-expr|asd)$")
   (define (dialect-type path) (string->symbol (second (regexp-match lisp-regexp path))))
@@ -25,9 +31,7 @@
                                    (let ((r (scan-file path)))
                                      (details r))))))))))
           (thread-wait-all ths))
-        (let ((summary (row-sort (column-sort (column-filter (summary details)))))
-              (details (row-sort (column-sort (column-filter details)))))
-          (report dir summary details)))))
+        details)))
   
   (define (scan-file path)
     (collect-counters ()
@@ -80,46 +84,27 @@
        (datum->syntax #f (read-unescape-string ch in)))))
   
   (scan-project dir))
-    
-(define (scanlisp.html (dir #f) #:row-sort (row-sort identity) #:column-sort (column-sort identity) #:column-filter (column-filter identity) #:rich (rich #t))
-  (scanlisp dir #:report (if rich pretty-html-reporter simple-html-reporter) #:summary (lambda (d) (summary-counters d)) #:row-sort row-sort #:column-sort column-sort #:column-filter column-filter))
 
-(define-syntax (scanlisp.summary stx)
+(define-syntax (scanlisp.summarize stx)
   (syntax-case stx ()
-    ((_ details (summaries ...))
-     (with-syntax ((summary-details (unhygienize 'summary-details #'details)))
-       #'(values
-          (generate-collect summaries (:into-alist)
-            (for ((detail (in-list details)))
-              (summary-details detail))) ...)))))
+    ((_ details ((name op) ...))
+     #'(let ((ds details))
+         (values
+          (apply op (get-values-of 'name ds)) ...)))
+    ((_ ((name op) ...))
+     #'(scanlisp.summarize (scanlisp) ((name op) ...)))))
 
-(define-syntax scanlisp.hist
-  (syntax-rules ()
-    ((scanlisp.hist details ((name title (low high step)) ...))
-     (let ((ds details))
-       (values 
-        (let ((hist #f)
-              (l #f)
-              (h #f)
-              (s #f))
-          (collect ((l +inf.0 min) (h 0 max) (:group (l h :as name)) (:into-values l h))
-            (for ((detail (in-list ds)))
-              (name (get-value 'name detail))))
-          (let* ((l (round (inexact->exact (or low l 0))))
-                 (h (round (inexact->exact (or high h 500))))
-                 (s (round (inexact->exact (or step (expt (abs (- h l)) 1/3)))))
-                 (s (if (zero? s) 1 s)))
-            (collect ((name (make-hist l h s) (lambda (cv v) (class-hist cv v))) (:into-values hist))
-              (for ((detail (in-list ds)))
-                (name (get-value 'name detail))))
-            (plot-hist hist #:title title #:width-ratio (/ (- h l) (* s 3/4) 10.0) #:x-label (get-description 'name (car ds)) #:y-label ""))) ...)))
-    ((scanlisp.hist details ((name) ...))
-     (scanlisp.hist details ((name "" (#f #f #f)) ...)))
-    ((scanlisp.hist details ((name title) ...))
-     (scanlisp.hist details ((name title (#f #f #f)) ...)))
-    ((scanlisp.hist details ((name title (low)) ...))
-     (scanlisp.hist details ((name title (low #f #f)) ...)))
-    ((scanlisp.hist details ((name title (low high)) ...))
-     (scanlisp.hist details ((name title (low high #f)) ...)))    
-    ((scanlisp.hist details (name ...))
-     (scanlisp.hist details ((name "") ...)))))
+(define (scanlisp.summary (details (scanlisp)))
+  (summary-counters-only-project details))
+
+(define (scanlisp.html (details (scanlisp)) #:row-sort (row-sort identity) #:column-sort (column-sort identity) #:column-filter (column-filter identity) #:rich (rich #t))
+  (let ((summary (row-sort (column-sort (column-filter (summary-counters details)))))
+        (details (row-sort (column-sort (column-filter details)))))
+    ((if rich pretty-html-reporter simple-html-reporter) 
+     (get-value-of 'file-path (car summary))
+     summary 
+     details)
+    (void)))
+
+(define (scanlisp.compare . args)
+  (map scanlisp.summary args))
