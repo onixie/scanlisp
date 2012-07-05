@@ -10,7 +10,12 @@
          print-description
          get-description-of)
 
-(struct counter (desc value printer) #:mutable)
+(struct counter (desc value printer)
+  #:mutable 
+  #:property prop:custom-write (lambda (stt p m) 
+                                 (fprintf p "~a:~a" 
+                                          (counter-desc stt) 
+                                          (counter-value stt))))
 
 (define (make-counter-printer what)
   (lambda (counter)

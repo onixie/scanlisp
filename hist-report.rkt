@@ -11,6 +11,10 @@
                                           (class-low stt) 
                                           (class-high stt))))
 
+(struct class-0s (low high)
+  #:property prop:custom-write (lambda (stt p m)
+                                 (fprintf p "...")))
+
 (define (make-hist low high (step 1))
   (reverse (map
             (lambda (class-high)
@@ -28,6 +32,12 @@
        hist)
   hist)
 
+(define (optimize-hist hist)
+  (let find-zero ((h hist) (s 0) (e 0) (zs null))
+    (cond ((null? h) (if (= s e) zs (cons (list s (sub1 e)) zs)))
+          ((zero? (vector-ref (car h) 1)) (find-zero (rest h) s (add1 e) zs))
+          (else (find-zero (rest h) (+ e 2) (+ e 2) (if (= s e) zs (cons (list s e) zs)))))))
+  
 (define (plot-hist hist #:width-ratio (width-ratio 1) #:title (title #f) #:x-label (x-label #f) #:y-label (y-label #f))
   (plot (discrete-histogram hist) 
         #:title title 
