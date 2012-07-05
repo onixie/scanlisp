@@ -18,7 +18,8 @@
            atom?
            depth
            thread-wait-all
-           (for-syntax unhygienize has))
+           (for-syntax unhygienize has)
+           get-collect-names)
   
   (define-syntax-rule (values->list thing)
     (call-with-values (lambda () thing) list))
@@ -145,6 +146,12 @@
        #'(begin-for-syntax
            (define what (list (list #'clauses ...)
                               '((gnames (names ...)) ...)))))))
+  
+  (define-syntax (get-collect-names stx)
+    (syntax-case stx ()
+      ((_ collect)
+       (with-syntax (((name ...) (map (lambda (cls) (car (syntax->datum cls))) (car (eval-syntax #'collect)))))
+         #'(list 'name ...)))))
   
   (define-syntax (add-collect! stx)
     (syntax-case stx (:group :into)

@@ -2,6 +2,8 @@
 #lang racket
 
 (require racket/cmdline)
+(require "utils.rkt")
+(require "defs.rkt")
 (require "scanlisp.rkt")
 (require plot)
 
