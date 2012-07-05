@@ -10,6 +10,7 @@
            same-part
            same-part2
            values->list
+           list->values
            rcons
            match-case
            assoc-key

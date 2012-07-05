@@ -8,7 +8,8 @@
          (rename-out (scanlisp.summary summary)
                      (scanlisp.summarize summarize)
                      (scanlisp.html report)
-                     (scanlisp.compare compare)))
+                     (scanlisp.compare compare)
+                     (scanlisp.histogram histogram)))
 
 (define (scanlisp (dir #f))
   (define current-dialect (make-parameter empty))
@@ -85,14 +86,19 @@
   
   (scan-project dir))
 
-(define-syntax (scanlisp.summarize stx)
-  (syntax-case stx ()
-    ((_ details ((name op) ...))
-     #'(let ((ds details))
-         (values
-          (apply op (get-values-of 'name ds)) ...)))
-    ((_ ((name op) ...))
-     #'(scanlisp.summarize (scanlisp) ((name op) ...)))))
+(define (scanlisp.summarize (details (scanlisp)) #:by (by '()))
+  (list->values
+   (map (lambda (arg)
+          (let ((name (first arg))
+                (op (second arg)))
+            (apply op (get-values-of name details))))
+        by)))
+
+(define (scanlisp.histogram (details (scanlisp)) #:by (by '()))
+  (scanlisp.summarize details 
+                      #:by (map (lambda (by) 
+                                  (list by (histogram-plotter #:x-label (get-description-of by (car details)))))
+                                by)))
 
 (define (scanlisp.summary (details (scanlisp)))
   (summary-counters-only-project details))
