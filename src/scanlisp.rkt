@@ -17,9 +17,10 @@
   (define (dialect-type path) (string->symbol (second (regexp-match lisp-regexp path))))
   
   (define (scan-project (dir #f))
-    (let ((dir (expand-user-path (or dir (current-directory)))))
+    (let ((dir (simplify-path (path->complete-path (expand-user-path (or dir (current-directory)))))))
       (unless (directory-exists? dir)
         (error "Project directory inexists."))
+      (displayln dir)
       (let ((details null) (ths null))
         (collect (details (:into-values details))
           (collect (ths (:into-values ths))

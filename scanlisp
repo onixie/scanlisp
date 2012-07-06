@@ -2,10 +2,10 @@
 #lang racket
 
 (require racket/cmdline)
-(require "utils.rkt")
-(require "defs.rkt")
-(require "scanlisp.rkt")
 (require plot)
+(require "src/utils.rkt")
+(require "src/defs.rkt")
+(require "src/scanlisp.rkt")
 
 (module+ main
   (define report? (make-parameter #t))
@@ -13,7 +13,6 @@
   (define compare? (make-parameter #f))
   (define field (make-parameter null))
   (define compact-lv (make-parameter 'none))
-  
   (define args (command-line
                 #:once-any
                 (("-r" "--report") "Generate Report"
@@ -34,12 +33,12 @@
                 #:args args
                 
                 args))
-  (if (> (length args) 0)
-      (if (compare?)
-          (cond ((report?) (report (apply compare (map (lambda (path) (scanlisp path)) args))))
-                ((plot?) (histogram (apply compare (map (lambda (path) (scanlisp path)) args)) #:by (field) #:compact (compact-lv)))
-                (else (exit)))
-          (cond ((report?) (report (scanlisp (car args))))
-                ((plot?) (histogram (scanlisp (car args)) #:by (field) #:compact (compact-lv)))
-                (else (exit))))
-      (exit)))
+    (if (> (length args) 0)
+        (if (compare?)
+            (cond ((report?) (report (apply compare (map (lambda (path) (scanlisp path)) args))))
+                  ((plot?) (histogram (apply compare (map (lambda (path) (scanlisp path)) args)) #:by (field) #:compact (compact-lv)))
+                  (else (exit)))
+            (cond ((report?) (report (scanlisp (car args))))
+                  ((plot?) (histogram (scanlisp (car args)) #:by (field) #:compact (compact-lv)))
+                  (else (exit))))
+        (exit)))

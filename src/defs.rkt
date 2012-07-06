@@ -109,8 +109,10 @@
   (define-summary-project values-length
     ("`values' Length" 0 max))
   
-  (define-error-counter errors 
+  (define-error-counter errors
     ("Error" "" (lambda (cv exn) (format "~a" (exn-message exn)))))
+  (define-summary-project errors
+    ("Error" "" string-append))
   
   (define-summary-total (total file-path)
     ("Total" 0 (lambda (cv v) (add1 cv))))

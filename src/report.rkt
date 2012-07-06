@@ -31,9 +31,11 @@
            (filter (lambda (cell) (show (member (car cell) columns))) result))
          results)))
 
+(define-values (html-dir file dir?) (split-path (simplify-path (path->complete-path (find-system-path 'run-file)))))
+
 (define (simple-html-reporter dir summary detail)
   (let ((page-name "ScanLisp Report")
-        (scanlisp.css (format "~a~a" (current-directory) "css/scanlisp.css")))
+        (scanlisp.css (format "~a~a" html-dir "html/css/scanlisp.css")))
     (send-url/contents
      (format "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">~a"
              (xexpr->string
@@ -93,15 +95,15 @@
 
 (define (pretty-html-reporter dir summary detail)
   (let ((page-name "ScanLisp Report")
-        (css-file (format "~a~a" (current-directory) "css/scanlisp.css"))
-        (page.css (format "~a~a" (current-directory) "css/page.css"))
-        (table.css (format "~a~a" (current-directory) "css/table.css"))
-        (table_jui.css (format "~a~a" (current-directory) "css/table_jui.css"))
-        (scanlisp.css (format "~a~a" (current-directory) "css/scanlisp.css"))
-        (jquery.js (format "~a~a" (current-directory) "js/jquery.js"))
-        (jquery-ui.js (format "~a~a" (current-directory) "js/jquery-ui.js"))
-        (jquery-dataTables.js (format "~a~a" (current-directory) "js/jquery.dataTables.js"))
-        (load.js (format "~a~a" (current-directory) "js/load.js")))
+        (css-file (format "~a~a" html-dir "html/css/scanlisp.css"))
+        (page.css (format "~a~a" html-dir "html/css/page.css"))
+        (table.css (format "~a~a" html-dir "html/css/table.css"))
+        (table_jui.css (format "~a~a" html-dir "html/css/table_jui.css"))
+        (scanlisp.css (format "~a~a" html-dir "html/css/scanlisp.css"))
+        (jquery.js (format "~a~a" html-dir "html/js/jquery.js"))
+        (jquery-ui.js (format "~a~a" html-dir "/html/js/jquery-ui.js"))
+        (jquery-dataTables.js (format "~a~a" html-dir "html/js/jquery.dataTables.js"))
+        (load.js (format "~a~a" html-dir "html/js/load.js")))
     (send-url/contents
      (format "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">~a"
              (xexpr->string
