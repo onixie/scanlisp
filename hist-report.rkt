@@ -60,6 +60,6 @@
 (define (plot-hist hist #:width-ratio (width-ratio 1) #:title (title #f) #:x-label (x-label #f) #:y-label (y-label #f))
   (plot (discrete-histogram hist) 
         #:title title 
-        #:width (if (< width-ratio 1) (plot-width) (* (inexact->exact (round width-ratio)) (plot-width))) 
+        #:width (if (< 1 width-ratio 39) (* (inexact->exact (round width-ratio)) (plot-width)) (plot-width)) 
         #:x-label x-label 
         #:y-label y-label))

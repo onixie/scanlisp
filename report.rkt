@@ -177,7 +177,7 @@
                       "Powered by Racket"))))))
     (void)))
 
-(define (histogram-plotter (lower #f) (upper #f) (step #f) #:title (title "") #:x-label (x-label "") #:y-label (y-label ""))
+(define (histogram-plotter (lower #f) (upper #f) (step #f) #:title (title "") #:x-label (x-label "") #:y-label (y-label "") #:compact (compact 'none))
   (define ->int (compose inexact->exact round))
   (lambda vs
     (let* ((upper (or upper (apply max vs)))
@@ -186,8 +186,12 @@
            (l (->int (min upper lower)))
            (s (or step (expt (- u l) 1/3)))
            (s (->int (if (zero? s) 1 s)))
-           (h (make-hist l u s))
-           (r (/ (- u l) (* s 4/5) 9))
-           (r (if (> r 39) 40 r)))
+           (h (make-hist l u s)))
       (map (lambda (v) (class-hist h (->int v))) vs)
-      (plot-hist h #:title title #:x-label x-label #:y-label y-label #:width-ratio r))))
+      (define compacting (case compact
+                           ((lv1) (lambda (h) (optimize-hist h 5)))
+                           ((lv2) (lambda (h) (optimize-hist h 3)))
+                           ((lv3) compact-hist)
+                           (else identity)))
+      (let ((h (compacting h)))
+        (plot-hist h #:title title #:x-label x-label #:y-label y-label #:width-ratio (/ (length h) 8))))))

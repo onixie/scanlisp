@@ -94,10 +94,10 @@
             (apply op (get-values-of name details))))
         by)))
 
-(define (scanlisp.histogram (details (scanlisp)) #:by (by '()))
+(define (scanlisp.histogram (details (scanlisp)) #:by (by '()) #:compact (compact 'none))
   (scanlisp.summarize details 
                       #:by (map (lambda (by) 
-                                  (list by (histogram-plotter #:x-label (get-description-of by (car details)))))
+                                  (list by (histogram-plotter #:x-label (get-description-of by (car details)) #:compact compact)))
                                 by)))
 
 (define (scanlisp.summary (details (scanlisp)))
